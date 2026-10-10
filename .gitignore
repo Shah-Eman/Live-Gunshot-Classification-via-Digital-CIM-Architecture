@@ -1,0 +1,39 @@
+# Vivado
+*.jou
+*.log
+*.str
+*.bak
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.gen/
+*.xpr
+*.bit
+*.ltx
+*.mmi
+
+# Simulation
+tb/sim_build/
+tb/__pycache__/
+*.vcd
+*.fst
+*.xml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~

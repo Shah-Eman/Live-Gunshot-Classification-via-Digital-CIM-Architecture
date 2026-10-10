@@ -1,0 +1,9 @@
+numpy
+tensorflow
+scikit-learn
+librosa
+soundfile
+matplotlib
+pandas
+cocotb
+pyserial
