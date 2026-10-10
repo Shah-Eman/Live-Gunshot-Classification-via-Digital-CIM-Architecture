@@ -189,6 +189,18 @@ date,commit,board,stage,config,n_macs,f_clk_mhz,cycles,ii,lut,ff,bram,dsp,dsp_ar
 
 ---
 
+## Team
+
+| Member | Role |
+|---|---|
+| Shah Eman | Team leader |
+| Abubakar | Member |
+| Abdul Nafeh | Member |
+| Talha Omar | Member |
+| Prof. Dr. M. Tahir | Supervisor |
+
+---
+
 ## Team rules
 
 1. Every measured number goes into `results/runs.csv` with its commit hash.
