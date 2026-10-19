@@ -1,6 +1,6 @@
 # Arithmetic Spec
 
-Status: sections 1-3 written (T1.2.a). Sections 4-8 are placeholders.
+Status: sections 1-3 written (T1.2.a), section 5 written (T1.2.c). Sections 4, 6, 7 and 8 are placeholders.
 
 Python (`sw/`), C (`hls/`) and RTL (`rtl/`) implement every operation in this file
 bit-exactly. Where this file and an implementation disagree, the implementation is
@@ -237,10 +237,293 @@ Saturation: `m0 = 30000`, `n = 16`, `acc = 100000`.
 - `y = clamp(45776, -128, 127) = 127`.
 - Truncating `q` to 8 bits first gives `-48`. That is wrong.
 
-## Later sections
+## 4. Bit-serial dot product
 
-- 4. Bit-serial dot product. Placeholder (T1.2.b).
-- 5. Layer types. Placeholder (T1.2.c).
-- 6. Accumulator bound. Placeholder (T1.2.b).
-- 7. Worked example. Placeholder (T1.2.d).
-- 8. Verification ladder. Placeholder (T1.2.e), diagram in `docs/diagrams/verification_ladder.{drawio,svg}`.
+Placeholder (T1.2.b).
+
+## 5. Layer types
+
+This section defines every layer of the starting 1D-CNN (runbook Step 2.4) as integer operations. It uses the
+number formats of §1, the requantization function of §3 and the bit-serial dot product of §4. Nothing here
+introduces a new arithmetic operation: every layer is either a dot product (§4) followed by a requantization (§3),
+or a comparison/sum on int8 values.
+
+Throughout this section:
+
+- `requant(acc, c, lo, hi)` means the §3.1 operation
+  `clamp((acc * m0[c] + (1 << (n[c] − 1))) >> n[c], lo, hi)` with the layer's own per-channel `m0[c]`, `n[c]`.
+- All indices start at 0. Ranges `a..b` include both ends.
+- "int8" always means signed two's-complement int8, range −128..127, even where the values happen to be ≥ 0.
+
+### 5.1 The network
+
+| # | Layer | Input shape (L × C) | Output shape (L × C) | Parameters | K = k × Cin | Chunks of 16 | MACs |
+|---|-------|--------------------|----------------------|-----------|-------------|--------------|------|
+| 0 | Input (int8 waveform) | — | 8000 × 1 | — | — | — | — |
+| 1 | Conv1D k=64, s=8, valid, 16 ch, ReLU | 8000 × 1 | 993 × 16 | 1,024 W + 16 B | 64 | 4 | 1,016,832 |
+| 2 | MaxPool1D 4, s=4, valid | 993 × 16 | 248 × 16 | — | — | — | — |
+| 3 | Conv1D k=9, s=1, same, 32 ch, ReLU | 248 × 16 | 248 × 32 | 4,608 W + 32 B | 144 | 9 | 1,142,784 |
+| 4 | MaxPool1D 4, s=4, valid | 248 × 32 | 62 × 32 | — | — | — | — |
+| 5 | Conv1D k=9, s=1, same, 32 ch, ReLU | 62 × 32 | 62 × 32 | 9,216 W + 32 B | 288 | 18 | 571,392 |
+| 6 | GlobalAvgPool (sum + requant, §5.6) | 62 × 32 | 32 | — | — | — | — |
+| 7 | Dense 32 → 5, no ReLU | 32 | 5 | 160 W + 5 B | 32 | 2 | 160 |
+| 8 | Argmax | 5 | 1 (class index 0..4) | — | — | — | — |
+
+Totals: 15,008 weights, 85 biases, 2,731,168 MACs. The per-layer table printed by `sw/models/cnn1d.py`
+(Step 1.1) must reproduce these numbers exactly. If it doesn't, either the model or this table is wrong, and it is
+fixed before anything else is built.
+
+The largest dot product is layer 5, with K = 288. §6 uses this for the accumulator bound.
+
+### 5.2 Tensor layout
+
+Every activation tensor is stored **position-major, channel-minor**: `A[p][c]`, with `p` the position (time) index
+and `c` the channel index. This is Keras's `channels_last` order, so no transpose is needed between Keras and
+the reference.
+
+Per-channel parameters (`W`, `bias`, `m0`, `n`) are indexed by the output channel `c` in the order of the last
+axis of the Keras kernel (`kernel[:, :, c]`).
+
+### 5.3 Convolution as a dot product (layers 1, 3, 5)
+
+**Parameters of a conv layer:** kernel size `k`, stride `s`, left padding `P` (0 for valid), input length `L_in`,
+input channels `Cin`, output channels `Cout`, output length `L_out`.
+
+**Flattened input index.** One output reads `K = k × Cin` inputs. The flat index `j` of tap `t` (0..k−1) and input
+channel `ci` (0..Cin−1) is
+
+```
+j = t × Cin + ci            (tap-major, channel-minor)
+t = j div Cin,  ci = j mod Cin
+```
+
+**Weights.** `W[c][j] = kernel[t][ci][c]` where `kernel` is the Keras Conv1D kernel of shape `(k, Cin, Cout)`.
+This is the same as `kernel.reshape(K, Cout)[j][c]`.
+
+**Input sample read by tap t of output p:**
+
+```
+i = s × p + t − P
+x_j = A_in[i][ci]   if 0 ≤ i ≤ L_in − 1
+x_j = 0             otherwise (padding)
+```
+
+The padding value is the int8 integer **0**. Activations are symmetric with no zero point (§2), so integer 0 is
+exactly real 0, and padding with 0 matches Keras `padding='same'` exactly. A padded input is still fed to the
+tile as an ordinary activation of value 0. It contributes nothing to the sum; whether the hardware spends cycles
+on it is a scheduling question for `mapping_spec.md`, not an arithmetic one.
+
+**Chunks.** The K inputs are split into `Q = K / 16` chunks. Chunk `q` (0..Q−1) holds flat indices
+`j = 16q .. 16q + 15`, in that order, on tile rows 0..15. Every K in this network is a multiple of 16. If a later
+model has a K that isn't, the last chunk is padded with rows whose weight is 0 and whose activation is 0.
+
+**Accumulation.**
+
+```
+acc[p][c] = bias[c] + Σ_{q=0}^{Q−1}  psum_q[p][c]
+psum_q[p][c] = Σ_{r=0}^{15}  W[c][16q + r] × x_{16q + r}       (computed bit-serially, §4)
+```
+
+- `acc` is int32 and starts at `bias[c]` before chunk 0.
+- Chunks are added in order q = 0, 1, …, Q−1. Integer addition is associative, and §6 proves no partial sum
+  can overflow, so the order doesn't change the result. It is fixed anyway, so the reference `trace()` and RTL
+  waveforms show the same intermediate values.
+- Requantization happens once per output, after the last chunk, never per chunk.
+
+**Output.**
+
+```
+A_out[p][c] = requant(acc[p][c], c, lo = 0, hi = 127)       (ReLU folded in, §5.8)
+```
+
+**Output channels on the tile.** Each tile column computes one output channel. When `Cout > 16`, output channel
+`c` belongs to column group `g = c div 16`, column `c mod 16`. Which group runs on which tile and when is
+defined in `mapping_spec.md`. The arithmetic is per channel and does not depend on it.
+
+### 5.4 Window table for each conv layer
+
+**Layer 1: Conv1D k=64, s=8, valid.** `P = 0`, `Cin = 1`, so `j = t`.
+
+```
+L_out = floor((8000 − 64) / 8) + 1 = 993
+Output p (0..992) reads samples  x[8p .. 8p + 63]
+Chunk q (0..3) = samples 8p + 16q .. 8p + 16q + 15
+First window: p = 0   → samples 0..63
+Last window:  p = 992 → samples 7936..7999   (the last sample is used; nothing is dropped)
+```
+
+No padding ever occurs in layer 1.
+
+**Layer 3: Conv1D k=9, s=1, same.** `L_in = 248`, `Cin = 16`, `Cout = 32`.
+
+```
+Total padding = (L_out − 1) × s + k − L_in = 8  →  P = 4 on the left, 4 on the right
+L_out = 248
+Output p (0..247) reads positions p − 4 .. p + 4, all 16 channels
+Chunk q (0..8) = tap t = q = position p − 4 + q, channels 0..15
+Padded reads: p = 0..3 (left) and p = 244..247 (right)
+```
+
+Because `Cin = 16`, each chunk is exactly one tap across all 16 input channels.
+
+**Layer 5: Conv1D k=9, s=1, same.** `L_in = 62`, `Cin = 32`, `Cout = 32`.
+
+```
+P = 4 left, 4 right;  L_out = 62
+Output p (0..61) reads positions p − 4 .. p + 4, all 32 channels
+Chunk q (0..17) = tap t = q div 2  (position p − 4 + q div 2),
+                  channels 16 × (q mod 2) .. 16 × (q mod 2) + 15
+Padded reads: p = 0..3 and p = 58..61
+```
+
+Example for review: in layer 5, chunk q = 5 is tap 2, channels 16..31, so for output p it reads `A[p − 2][16..31]`.
+
+**General rule for `same` padding** (if the model changes): total padding
+`T = max((ceil(L_in / s) − 1) × s + k − L_in, 0)`, `P = floor(T / 2)` on the left, `T − P` on the right. This is
+TensorFlow's rule: when T is odd, the extra zero goes on the **right**.
+
+### 5.5 Max pooling (layers 2, 4)
+
+Pool size 4, stride 4, no padding:
+
+```
+L_out = floor(L_in / 4)
+B[p][c] = max( A[4p][c], A[4p + 1][c], A[4p + 2][c], A[4p + 3][c] )      for p = 0..L_out − 1
+```
+
+- It runs on int8 values and produces int8 values. There is no requantization and the scale doesn't change.
+- Layer 2: `L_out = floor(993 / 4) = 248`. Inputs 0..991 are used. **Position 992 of layer 1 is computed but
+  never read** (Keras `padding='valid'` drops it). The hardware still computes it, because `expected_l1.hex`
+  contains all 993 positions.
+- Layer 4: `L_out = 248 / 4 = 62`, nothing dropped.
+- Equal values need no tie rule: max returns the value, not an index.
+- This is exact with respect to the float model: requantization and ReLU are monotonic non-decreasing, so
+  pooling after requantization gives the same result as quantizing after pooling.
+
+### 5.6 Global average pooling (layer 6)
+
+GAP is done in two integer steps, with no division anywhere.
+
+**Step 1 — sum** (block `gap_sum`):
+
+```
+S[c] = Σ_{p=0}^{61} A5[p][c]          int32, for c = 0..31
+```
+
+The inputs are post-ReLU (0..127), so `0 ≤ S[c] ≤ 62 × 127 = 7,874`. That fits easily in int32 (and in 14 bits).
+The order of the sum doesn't matter.
+
+**Step 2 — requantize to int8** using the §3 unit:
+
+```
+G[c] = requant(S[c], c, lo = 0, hi = 127)
+```
+
+`m0_gap`, `n_gap` are chosen by `quantize.py` so that `m0_gap / 2^n_gap ≈ s_5 / (62 × s_G)`, where `s_5` is
+layer 5's output scale and `s_G` is the GAP output scale (calibrated per tensor like every activation). The 1/L
+is folded into this multiplier, so no integer division happens in hardware. Because input and output are both
+per tensor, all 32 channels use the same `(m0, n)`. The table is still stored per channel so the same
+requantization unit is reused unchanged.
+
+> **Decision (needs team sign-off, see §5.11):** the runbook says to fold 1/L into the *next* layer's
+> requantization. That would make the dense layer's inputs the 14-bit sums `S[c]`, which the 8-bit,
+> 8-cycle tile of §4 can't take. This spec requantizes the sum to int8 first instead, so every tile input in the
+> network is int8 and §4 holds unchanged. The extra rounding is part of the integer model, so its accuracy cost
+> is measured in Step 2.6 like every other quantization effect.
+
+### 5.7 Dense (layer 7)
+
+A dense layer is a conv layer with `L_in = L_out = 1`, `k = 1`, `s = 1`, `P = 0`, so `j = ci`:
+
+```
+W[c][j] = kernel[j][c]         (Keras Dense kernel, shape (32, 5))
+acc[c]  = bias[c] + Σ_{q=0}^{1} Σ_{r=0}^{15} W[c][16q + r] × G[16q + r]      (bit-serial, §4)
+Z[c]    = requant(acc[c], c, lo = −128, hi = 127)                          for c = 0..4
+```
+
+- **No ReLU:** `lo = −128`. The outputs `Z` are int8 logits.
+- **Why a requantization is needed before argmax.** Weights are per channel, so each class's `acc[c]` has its
+  own scale `s_G × s_W[c]`. Comparing raw accumulators across classes would compare numbers in different units.
+  `quantize.py` chooses each `(m0[c], n[c])` to map class `c` onto one common logit scale `s_Z`
+  (`m0[c] / 2^n[c] ≈ s_G × s_W[c] / s_Z`), so the `Z[c]` are comparable.
+- **Tile columns:** only columns 0..4 are used. Columns 5..15 hold weight 0 and their outputs are ignored.
+
+### 5.8 ReLU
+
+ReLU is not a separate operation anywhere. It is the `lo = 0` bound of the requantization that follows each
+conv layer (and the GAP requantization, whose input is already ≥ 0). `clamp(v, 0, 127)` is exactly
+`min(max(v, 0), 127)`, and since requantization is monotonic, this matches `quantize(ReLU(x))` in the float
+model.
+
+| Requantization after | lo | hi |
+|---|---|---|
+| Layer 1, 3, 5 (conv) | 0 | 127 |
+| Layer 6 (GAP) | 0 | 127 |
+| Layer 7 (dense) | −128 | 127 |
+
+### 5.9 Argmax (layer 8)
+
+```
+class = the smallest c in 0..4 such that Z[c] = max(Z[0..4])
+```
+
+- **Tie rule: the lowest index wins.** Ties are possible because `Z` is int8 (two logits can round or saturate
+  to the same value). This is the same rule as `numpy.argmax`, so the reference needs no special handling.
+- The output is an unsigned integer 0..4 (3 bits). The mapping from index to class name is the class order
+  fixed in `manifest.csv` / `docs/dataset_audit.md`, and Keras training uses the same order.
+- Hardware compares sequentially c = 0..4 and replaces the running maximum only on a **strictly greater** value.
+  That implements the lowest-index rule.
+
+### 5.10 Named intermediate tensors
+
+`ref_int.py`'s `trace(x)` returns these, with these names, and the RTL testbenches compare against them. The
+`acc*` tensors are the int32 values before requantization; they are for debugging and are not stored by the
+engine.
+
+| Name | Shape | dtype | Range | Definition |
+|---|---|---|---|---|
+| `x` | 8000 × 1 | int8 | −128..127 | Quantized input (§2) |
+| `acc1` | 993 × 16 | int32 | §6 | §5.3, layer 1 |
+| `a1` | 993 × 16 | int8 | 0..127 | requant(acc1) |
+| `p1` | 248 × 16 | int8 | 0..127 | maxpool(a1) |
+| `acc3` | 248 × 32 | int32 | §6 | §5.3, layer 3 |
+| `a3` | 248 × 32 | int8 | 0..127 | requant(acc3) |
+| `p3` | 62 × 32 | int8 | 0..127 | maxpool(a3) |
+| `acc5` | 62 × 32 | int32 | §6 | §5.3, layer 5 |
+| `a5` | 62 × 32 | int8 | 0..127 | requant(acc5) |
+| `gsum` | 32 | int32 | 0..7,874 | §5.6 step 1 |
+| `g` | 32 | int8 | 0..127 | §5.6 step 2 |
+| `acc7` | 5 | int32 | §6 | §5.7 |
+| `z` | 5 | int8 | −128..127 | requant(acc7) |
+| `cls` | 1 | int | 0..4 | §5.9 |
+
+`model_int.npz` holds, for each of the layers 1, 3, 5, 6, 7: `m0` and `n` (one per output channel); and for
+layers 1, 3, 5, 7: `W` (shape `Cout × K`, flattened as in §5.3) and `bias` (int32, `Cout`). Layer 6 has no
+weights or bias.
+
+### 5.11 Points to confirm before the S1.2 review
+
+Bias handling is already fixed by §2.5 (`acc = b_q[c] + sum(w_q * a_q)`), and §5.3 follows it.
+
+1. **Padding of layers 3 and 5 is `same`.** The runbook says im2col needs padding for layers 2 and 3 of the
+   conv stack, and the MAC total (2.73 M) matches. `cnn1d.py` must use `padding='same'` for those two convs and
+   `'valid'` for the first conv and both pools. (Owner of T1.1.)
+2. **Every conv is followed by ReLU, and the dense layer is not.** `cnn1d.py` must match.
+3. **GAP requantizes to int8 (§5.6)**, not "fold 1/L into the dense layer". The alternative is to let the dense
+   layer take 14-bit inputs, which means changing §4 to a variable number of bit-cycles. Agree with the team
+   and record it in `docs/decisions.md`.
+4. **The dense output is requantized to int8, with lowest-index argmax.** The alternative is per-tensor weights
+   for the dense layer only, so the raw `acc7` can go straight to argmax. That avoids saturation ties but adds a
+   special case to `quantize.py`.
+
+## 6. Accumulator bound
+
+Placeholder (T1.2.b). The largest dot product is layer 5, with K = 288 (§5.1).
+
+## 7. Worked example
+
+Placeholder (T1.2.d).
+
+## 8. Verification ladder
+
+Placeholder (T1.2.e), diagram in `docs/diagrams/verification_ladder.{drawio,svg}`.
