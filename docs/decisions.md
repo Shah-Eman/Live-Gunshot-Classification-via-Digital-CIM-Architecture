@@ -34,7 +34,7 @@ cannot take a 14-bit input as it stands. Supporting it means changing §4 to a v
 touches the tile, its model, its testbenches and the cycle count.
 
 **Option B: requantize the sum to int8 right after summing (chosen in the spec).**
-`G[c] = requant(S[c], c, 0, 127)`, with the 1/62 folded into this multiplier (`m0_gap / 2^n_gap ≈ s_3 / (62 × s_G)`).
+`G[c] = requant(S[c], c, 0, 127)`, with the 1/62 folded into this multiplier (`M_gap = s_3 / (62.0 * s_G)`, evaluated in float64 as written in `arith_spec.md` §5.6).
 Every input to every tile in the network is then int8, and §4 stays exactly as written. The cost is one extra
 rounding step.
 
