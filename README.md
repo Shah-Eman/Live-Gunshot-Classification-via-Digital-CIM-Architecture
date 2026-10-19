@@ -1,8 +1,8 @@
-# CIM for Deep Learning — FYP Repository
+# CIM for Deep Learning: FYP Repository
 
-Compute-in-memory (CIM) macro emulator for deep learning on FPGA, developed as a Final Year Project at UET Lahore under Prof. Dr. Muhammad Tahir.
+This repository holds a compute-in-memory (CIM) macro emulator for deep learning on FPGA. It is a Final Year Project at UET Lahore, supervised by Prof. Dr. Muhammad Tahir.
 
-The project builds a bit-serial, weight-stationary CIM tile in hand-written RTL, maps a real gunshot-classification 1D-CNN onto it, and compares it against a conventional (von-Neumann) baseline engine across MAC counts, on two FPGA boards.
+The project builds a bit-serial, weight-stationary CIM tile in hand-written RTL and maps a real gunshot-classification 1D-CNN onto it. It then compares the result against a conventional (von Neumann) baseline engine, across different MAC counts, on two FPGA boards.
 
 ---
 
@@ -31,9 +31,11 @@ The project builds a bit-serial, weight-stationary CIM tile in hand-written RTL,
 │
 ├── docs/
 │   ├── rules.md              Team rules
-│   ├── diagrams/             .drawio sources + exported .svg
-│   (arith_spec, mapping_spec, baseline_spec, measurement_protocol,
-│    file_formats, uart_protocol, decisions, resources, dataset_audit)
+│   ├── arith_spec.md         Exact integer arithmetic of the whole network
+│   ├── decisions.md          Design decisions, with options and reasons
+│   ├── diagrams/             .drawio sources and exported .svg
+│   (still to come: mapping_spec, baseline_spec, measurement_protocol,
+│    file_formats, uart_protocol, resources, dataset_audit)
 │
 ├── rtl/
 │   ├── core/                 Board-agnostic design
@@ -245,6 +247,16 @@ The core of the project is `rtl/cim/cim_tile.sv` (Step 1.6):
 
 ---
 
+## Key documents
+
+| Document | What it is for |
+|---|---|
+| `docs/arith_spec.md` | The single definition of every integer operation in the network. Python, C and RTL must all match it bit for bit. |
+| `docs/decisions.md` | Each design decision written down with its options and reason, so nobody has to argue it again later. |
+| `docs/rules.md` | The three team rules. |
+
+---
+
 ## Network
 
 A small 1D-CNN on the raw waveform (defined in `sw/models/cnn1d.py`):
@@ -255,10 +267,14 @@ Input 8000×1 → Conv1D k64 s8 16ch → MaxPool4
 → Conv1D k9 32ch → GlobalAvgPool → Dense 32→5
 ```
 
-- ~2.7 M MACs, ~15 k parameters
-- Tile-friendly shapes: output channels and k×Cin are multiples of 16
-- Budget: ≤ 4 M MACs, ≤ 30 k parameters (fits Nexys A7-100T LUTRAM)
-- Quantized to 8-bit integers (symmetric, per-channel weights)
+Layers are referred to by name in the docs and code, not by number: `conv1`, `pool1`, `conv2`, `pool2`, `conv3`,
+`gap`, `dense` and `argmax`. The runbook counts only the conv layers, so its "layer 1, 2, 3" are `conv1`, `conv2` and
+`conv3`. Using names avoids mixing the two counting schemes up. The full layer table is in `docs/arith_spec.md` §5.1.
+
+- About 2.7 M MACs (2,731,168 exactly) and about 15 k parameters (15,008 weights).
+- Tile-friendly shapes: output channels and k×Cin are multiples of 16, so no part of the 16 × 16 tile sits idle.
+- Budget: at most 4 M MACs and at most 30 k parameters, so the model fits the LUTRAM of the Nexys A7-100T.
+- Quantized to 8-bit integers (symmetric, with per-channel weight scales and per-tensor activation scales).
 
 ---
 
