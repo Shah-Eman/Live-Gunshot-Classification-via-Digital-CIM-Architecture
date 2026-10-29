@@ -1,6 +1,8 @@
 # Makefile for CIM FYP project
-# Targets: sim, synth, bit
-# Usage:   make sim
+# Targets: test_py, tile_demo, sim, synth, bit, clean
+# Usage:   make test_py                  (Python tests, no tools needed beyond numpy)
+#          make tile_demo                (print the spec section 7 worked example)
+#          make sim
 #          make synth TOP=<top_module> BOARD=nexys
 #          make bit   TOP=<top_module> BOARD=nexys
 
@@ -17,12 +19,23 @@ $(error Unknown BOARD '$(BOARD)'. Use BOARD=nexys or BOARD=zcu104)
 endif
 
 SIMULATOR ?= icarus
+PYTHON    ?= python3
 
 RTL_CORE := $(wildcard rtl/core/*.sv) $(wildcard rtl/common/*.sv) $(wildcard rtl/cim/*.sv)
 RTL_BOARD := $(wildcard rtl/board/$(BOARD)/*.sv)
 RTL := $(RTL_CORE) $(RTL_BOARD)
 
-.PHONY: sim synth bit clean
+.PHONY: test_py tile_demo sim synth bit clean
+
+# ------------------------------------------------------------------
+# Python tests (Step 1.4 tile model; later steps add their tests here)
+# ------------------------------------------------------------------
+test_py:
+	$(PYTHON) -m unittest discover -s sw/ref -p 'test_*.py' -v
+
+# Print the arith_spec.md section 7 worked example, cycle by cycle
+tile_demo:
+	$(PYTHON) sw/ref/tile_model.py
 
 # ------------------------------------------------------------------
 # Simulation (cocotb + Icarus Verilog)
