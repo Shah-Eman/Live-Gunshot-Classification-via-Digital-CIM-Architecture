@@ -111,8 +111,13 @@ def main() -> int:
     d_te = {dkey(rows[p]) for p in dev_test if rows[p]["device"]}
     check(dev_test <= pool and not d_tr & d_te,
           f"device split: test inside the CV pool, {len(d_te)} held-out devices, none in training "
-          f"({len(d_tr & d_te)} shared); {raw['device_split']['shared_groups']} shot groups recorded on devices "
-          f"of both sides (same shot, different microphone: expected for a within-session device split)")
+          f"({len(d_tr & d_te)} shared)")
+    g_tr = {rows[p]["group"] for p in dev_train}
+    g_te = {rows[p]["group"] for p in dev_test}
+    n_ex = len(raw["device_split"]["train_excluded_paths"])
+    check(not g_tr & g_te,
+          f"device split: no shot group on both sides ({len(g_tr & g_te)} shared; {n_ex} training clips of "
+          f"{raw['device_split']['shared_groups']} groups also recorded on a held-out device are left out)")
     for c in guns:
         n_te = sum(rows[p]["class"] == c for p in dev_test)
         check(n_te > 0, f"device split tests {c} ({n_te} clips)")

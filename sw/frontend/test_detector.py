@@ -103,7 +103,7 @@ class TestDetector(unittest.TestCase):
     def test_refractory_never_longer_than_post_trigger_audio(self):
         self.assertLessEqual(CFG.refractory_samples, FRONTEND.window.post_trigger_samples)
         with self.assertRaises(AssertionError):
-            replace(CFG, refractory_samples=5601).validate(WindowConfig())
+            replace(CFG, refractory_samples=WindowConfig().post_trigger_samples + 1).validate(WindowConfig())
 
     def test_rejects_non_int16(self):
         with self.assertRaises(TypeError):

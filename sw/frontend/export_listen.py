@@ -3,8 +3,8 @@
 
 Windows are exported exactly as the model sees them (after the gain, with the
 zeroed tail), from the cross-validation pool only (never the test set). Gun
-windows are spread over their sources; the trigger is 0.05 s into every gun
-window, so the shot should be heard right at the start. Background windows are
+windows are spread over their sources; the trigger is pre_trigger_samples (0.04 s) into
+every gun window, so the shot should be heard right at the start. Background windows are
 drawn by the epoch sampler, mixing its kinds (detector-cut, gun-microphone,
 gun-microphone with an event, random).
 
@@ -72,7 +72,7 @@ def main() -> int:
             sf.write(a.out / name, apply_gain(X[i], int(K[i])), sr, subtype="PCM_16")
             listing.append({"file": name, "class": cls, "kind": "gun", "source": r["source"], "clip": r["path"],
                             "window_start": r["window_start"], "trigger_sample": r["trigger_sample"],
-                            "note": "shot expected at 0.05 s"})
+                            "note": f"shot expected at {cfg.window.pre_trigger_samples / sr:.2f} s"})
 
     b = EpochBuilder.from_files(a.manifest, a.splits, a.window_index, a.gun_npz, a.background_index,
                                 train_paths=pool, seed=cfg.seeds.listen)

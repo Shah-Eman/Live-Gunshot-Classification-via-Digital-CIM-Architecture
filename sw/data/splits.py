@@ -56,8 +56,12 @@ class Splits:
         return self.cv_pool - val, val
 
     def device_split(self) -> tuple[set[str], set[str]]:
-        test = set(self.raw["device_split"]["test_paths"])
-        return self.cv_pool - test, test
+        """(train, test): device-disjoint, and no shot group on both sides."""
+        d = self.raw["device_split"]
+        test = set(d["test_paths"])
+        if "train_excluded_paths" not in d:
+            raise ValueError("splits.json predates the group-disjoint device split; re-run make_splits.py")
+        return self.cv_pool - test - set(d["train_excluded_paths"]), test
 
     def random_split(self) -> tuple[set[str], set[str]]:
         test = set(self.raw["random_split"]["test_paths"])

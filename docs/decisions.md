@@ -96,13 +96,15 @@ quantize differently from every other layer.
 | Date | (to be filled in) |
 
 **The question.** C3GD clips start about 0.1 s before the shot, and the `c3gd_nj_farm` and `c3gd_ny_gravel_pit` clips
-are only 0.459 s long. A 0.5 s window starting 50 ms before the trigger does not fit them. Padding only some clips
+are only 0.459 s long. A 0.5 s window starting 40–50 ms before the trigger does not fit them. Padding only some clips
 would make the padding a session label. The runbook lists (a) a 0.5 s input with 0.40 s of real audio and the last
 0.10 s zeroed for every clip, (b) dropping the two short sessions, (c) a 0.4 s input, which changes `arith_spec.md`.
 
 **Proposed choice: option (a).** The model input stays 8000 samples (`arith_spec.md` §5.1 unchanged). It holds
-6400 samples of real audio, from 800 samples (0.05 s) before the trigger to 5600 samples (0.35 s) after it, and 1600
-zeros. A clip that cannot supply this is dropped, never padded. All numbers live in one object,
+6400 samples of real audio, from 640 samples (0.04 s) before the trigger to 5760 samples (0.36 s) after it, and 1600
+zeros. The runbook suggested 0.05 s before the trigger; 0.04 s is used because every `c3gd_nj_farm` clip has its shot
+at 0.046 s, so 0.05 s dropped that whole session and left CV fold 2 without gun windows (measured below).
+A clip that cannot supply this is dropped, never padded. All numbers live in one object,
 `sw/frontend/config.py: WindowConfig`.
 
 **Every gun window comes from the detector** (`sw/frontend/detector.py`, integer only, spec and register widths in
@@ -111,7 +113,7 @@ zeros. A clip that cannot supply this is dropped, never padded. All numbers live
 `c3gd_nj_farm`), and the Cadre onset (first sample at or above half the peak within 0.1 s before it). A trigger
 matches a reference shot when it lies from 0.10 s before to 0.05 s after it, one to one, nearest pairs first. The
 early side is wider because supersonic rounds put their crack ahead of the muzzle blast. A window with no matched
-reference shot is never kept, and the refractory period is 0.10 s (≤ 0.35 s).
+reference shot is never kept, and the refractory period is 0.10 s (≤ 0.36 s).
 
 **Detector recall on every gun clip of the dataset** (`results/step16/detector_summary.md`, from
 `sw/frontend/cut_windows.py`, which exits non-zero if any source, class or session falls below 95 %):
@@ -148,25 +150,27 @@ in both the reference time is wrong rather than the detector:
 - c3gd / 12 ga / `c3gd_oh_farm`: 91 of 98 (92.9 %). In all 7 misses the peak is within the first 12 ms of the clip:
   the recording starts after the shot began, so there is no onset to detect.
 
-**Drops by placement** (11,759 matched shots; 11,186 windows kept):
+**Drops by placement** (11,759 matched shots; 11,497 windows kept):
 
 | Reason | Windows | Where |
 |---|---:|---|
-| window would start before the clip's audio | 383 | 333 are all of `c3gd_nj_farm` (shot at 0.046 s) |
-| less than 0.40 s of audio after the start | 190 | 150 are `c3gd_ny_gravel_pit` 5.56 (150 of 171) |
+| window would start before the clip's audio | 40 | 13 `c3gd_nj_farm` 9 mm, 16 `c3gd_nj_farm_2`, 5 `c3gd_oh_farm`, 6 others |
+| less than 0.40 s of audio after the start | 222 | 162 `c3gd_ny_gravel_pit` 5.56, 16 `ny_gravel_pit` 12 ga, 40 `edge-day1` |
 
 "Audio" is the span between the first and the last non-zero sample, so file padding is never used as signal.
-Consequence: CV fold 2 (validation session `c3gd_nj_farm`) has no gun window, and `ny_gravel_pit` keeps only 21
-5.56 windows. Measured alternatives for the pre-trigger length, each with 0.40 s of real audio:
+`c3gd_ny_gravel_pit` keeps only 9 of its 171 5.56 clips: those clips are 0.459 s long with the shot at 0.1 s, so
+0.40 s of audio from 0.04 s before the trigger fits only when the trigger comes early. Only option (c) would keep
+them. Measured alternatives for the pre-trigger length, each with 0.40 s of real audio:
 
 | Pre-trigger | Windows kept | Start before audio | Short after start |
 |---|---:|---:|---:|
 | 0.03 s | 11,476 | 1 | 282 |
-| 0.04 s | 11,497 | 40 | 222 |
-| 0.05 s (proposed) | 11,186 | 383 | 190 |
+| 0.04 s (proposed) | 11,497 | 40 | 222 |
+| 0.05 s (runbook) | 11,186 | 383 | 190 |
 
-0.04 s would keep 320 of the 333 `c3gd_nj_farm` windows (and fill fold 2) for 10 ms less context before the trigger. It is a one-line change
-in `WindowConfig`; the team should choose before Step 1.7.
+0.04 s keeps 320 of the 333 `c3gd_nj_farm` windows (so CV fold 2 has gun windows) for 10 ms less context before
+the trigger, and loses 32 more `ny_gravel_pit` windows than 0.05 s. 0.03 s would also keep the 40 but lose 60 more
+short clips and leave only 32 ms before the trigger, under the detector's 34 ms warm-up.
 
 **Bandwidth.** Every clip is resampled to 16 kHz, so content up to 8 kHz is kept. The 55 background clips recorded
 below 16 kHz (`dataset_audit.md` §4.3) have nothing above their own Nyquist: their median energy share above 5.5 kHz
@@ -177,7 +181,7 @@ the 55 dropped clips fail it (band edge 6,031 Hz), every kept source passes (8,0
 
 **Normalisation.** Identical for every source and done the same way in hardware: a per-window power-of-two gain,
 `k = clamp(15 − bit_length(peak), 0, 10)` over the real part, then `w << k` with saturation (`docs/frontend.md` §4).
-Measured: no window at the maximum shift, median peak after gain within 2.56 dB across sources. The int16-to-int8 step
+Measured: no window at the maximum shift, median peak after gain within 2.65 dB across sources. The int16-to-int8 step
 is a proposal for `arith_spec.md` §2.4 (`docs/frontend.md` §4).
 
 **Reason.**
@@ -208,13 +212,13 @@ trained on, from two different datasets?
 `session_id` is `c3gd_nj_farm_2` or `edge-day2`, plus 15 % of the remaining background sessions (452 of 3,010,
 drawn by `session_id` with seed 1623). No session with gun clips is drawn at random, so no session is split. The
 clips are stored as explicit paths in `sw/data/splits.json`
-(sha256 `e5037db37ec301cac37bf801cf7b281a6020ae287ffd8b0947643e9dd657c399`, written by `sw/data/make_splits.py`,
+(sha256 `27a9836334dccecb62629f7df729cb5e8cc735c9f4c93e8605899e1b1181ebd2`, written by `sw/data/make_splits.py`,
 checked by `sw/data/check_splits.py`). Loading it fails if the file is missing or the manifest has changed.
 
 | Set | 9 mm | .38 Special | 5.56 / .223 | 12 ga | Background | Sessions |
 |---|---:|---:|---:|---:|---:|---:|
 | Test clips | 1,143 | 251 | 937 | 216 | 2,564 | 454 |
-| Test gun windows | 1,127 | 290 | 1,385 | 467 | (sampled) | |
+| Test gun windows | 1,134 | 293 | 1,389 | 467 | (sampled) | |
 
 The gun clip counts equal the runbook's expected 1,143 / 937 / 251 / 216. Every class is tested on `c3gd` and
 `edge`.
@@ -222,9 +226,17 @@ The gun clip counts equal the runbook's expected 1,143 / 937 / 251 / 216. Every 
 **The rest (17,335 clips; 55 dropped by D22).** `StratifiedGroupKFold(5, shuffle, seed 16)` grouped by `session_id`;
 `check_splits.py` also proves that no `group` (one shot recorded by several microphones) crosses a fold or the test
 set. Each fold validates on exactly one gun session: fold 0 `c3gd_oh_farm`, fold 1 `edge-day1`, fold 2 `c3gd_nj_farm`
-(no gun windows under D22 with 0.05 s pre-trigger), fold 3 `cadre`, fold 4 `c3gd_ny_gravel_pit`. .38 is validated only
-in folds 1 and 3 and is reported separately. Also in `splits.json`: a device-disjoint split inside the CV pool (seed
-17, 7 held-out devices, every class tested) and a random clip-level split (seed 18, 80/20).
+(320 gun windows, 9 mm only), fold 3 `cadre`, fold 4 `c3gd_ny_gravel_pit` (9 5.56 and 158 12 ga windows). .38 is
+validated only in folds 1 and 3 and is reported separately. Also in `splits.json`: a device-disjoint split inside the
+CV pool (seed 17, 7 held-out devices, every class tested) and a random clip-level split (seed 18, 80/20). The device
+split is also group-disjoint: the 1,090 training clips (all Cadre) whose recording run was also captured on a
+held-out device are left out of its training side, so no shot is heard on both sides.
+
+**How Steps 1.7 and 1.8 must score cross-validation.** With one gun session per fold, most folds have no validation
+clips for some classes (.38 is in folds 1 and 3 only, 12 ga is missing from folds 2 and 3). Per-fold accuracy, or
+an average of per-fold scores, is therefore meaningless for those classes. Collect the out-of-fold predictions of
+all five folds and compute every per-class metric (recall, balanced accuracy, confusion matrix) once, on that pooled
+set.
 
 **Reason.** Both held-out sessions record all four classes, from two datasets and microphone types, so test accuracy
 measures generalisation to a new day and site rather than session recognition. Holding out background by session keeps

@@ -26,7 +26,7 @@ class WindowConfig:
 
     sample_rate: int = 16000
     window_samples: int = 8000        # 0.50 s model input (arith_spec.md 5.1)
-    pre_trigger_samples: int = 800    # 0.05 s of audio before the trigger
+    pre_trigger_samples: int = 640    # 0.04 s of audio before the trigger (D22: 0.05 s dropped all of c3gd_nj_farm)
     real_samples: int = 6400          # 0.40 s of real audio, then zeros
 
     @property

@@ -1,6 +1,6 @@
 # Split check (Step 1.6, Decision D23)
 
-`sw/data/check_splits.py` on `splits.json` (sha256 `e5037db37ec301cac37bf801cf7b281a6020ae287ffd8b0947643e9dd657c399`), seeds {'cv': 16, 'background_test_sessions': 1623, 'device_split': 17, 'random_split': 18}.
+`sw/data/check_splits.py` on `splits.json` (sha256 `27a9836334dccecb62629f7df729cb5e8cc735c9f4c93e8605899e1b1181ebd2`), seeds {'cv': 16, 'background_test_sessions': 1623, 'device_split': 17, 'random_split': 18}.
 
 - PASS: splits.json matches the manifest (sha256 5a9d14c09d594140...)
 - PASS: every path in splits.json is a manifest clip (0 unknown)
@@ -17,13 +17,14 @@
 - PASS: revolver_38spl is tested on sessions ['c3gd_nj_farm_2', 'edge-day2'] from 2 datasets ['c3gd', 'edge']
 - PASS: rifle_556_223 is tested on sessions ['c3gd_nj_farm_2', 'edge-day2'] from 2 datasets ['c3gd', 'edge']
 - PASS: shotgun_12ga is tested on sessions ['c3gd_nj_farm_2', 'edge-day2'] from 2 datasets ['c3gd', 'edge']
-- PASS: device split: test inside the CV pool, 7 held-out devices, none in training (0 shared); 45 shot groups recorded on devices of both sides (same shot, different microphone: expected for a within-session device split)
+- PASS: device split: test inside the CV pool, 7 held-out devices, none in training (0 shared)
+- PASS: device split: no shot group on both sides (0 shared; 1090 training clips of 45 groups also recorded on a held-out device are left out)
 - PASS: device split tests pistol_9mm (896 clips)
 - PASS: device split tests revolver_38spl (192 clips)
 - PASS: device split tests rifle_556_223 (409 clips)
 - PASS: device split tests shotgun_12ga (158 clips)
 - PASS: random split: 13868 train / 3467 test clips, every class on both sides
-- PASS: every gun window (11186) belongs to a clip of the test set or a fold (0 do not)
+- PASS: every gun window (11497) belongs to a clip of the test set or a fold (0 do not)
 
 ## Clips per class
 
@@ -55,11 +56,9 @@ Gun sessions per fold (validation side): fold 0: c3gd_oh_farm; fold 1: edge-day1
 
 | set | pistol_9mm | revolver_38spl | rifle_556_223 | shotgun_12ga |
 |---|---:|---:|---:|---:|
-| test | 1127 | 290 | 1385 | 467 |
-| fold0 | 1001 | 0 | 462 | 91 |
-| fold1 | 1277 | 796 | 1924 | 469 |
-| fold2 | 0 | 0 | 0 | 0 |
-| fold3 | 1026 | 334 | 342 | 0 |
-| fold4 | 0 | 0 | 21 | 174 |
-
-Note: these sets hold clips of a class but no gun window of it (every clip dropped by the D22 placement): fold2/pistol_9mm.
+| test | 1134 | 293 | 1389 | 467 |
+| fold0 | 1003 | 0 | 464 | 91 |
+| fold1 | 1279 | 796 | 1926 | 465 |
+| fold2 | 320 | 0 | 0 | 0 |
+| fold3 | 1027 | 334 | 342 | 0 |
+| fold4 | 0 | 0 | 9 | 158 |

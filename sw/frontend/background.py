@@ -10,7 +10,7 @@ Background kinds (shares from config.BackgroundConfig):
 - gunmic_event: the same, with a US8K / ESC-50 event mixed on top
                 (gunmic + gunmic_event >= 15 % of each epoch's background);
 - triggered:    a window cut at a detector trigger of a background clip, with the
-                same placement as the gun windows, so "energy jump at sample 800"
+                same placement as the gun windows, so "energy jump at the trigger position"
                 does not identify the gun classes;
 - random:       a random crop of any other background clip.
 

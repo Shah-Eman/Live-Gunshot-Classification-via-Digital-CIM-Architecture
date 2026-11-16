@@ -47,7 +47,7 @@ else:                            R_cnt −= 1;              Epk = max(Epk, Ef)
 | `PS` | 4 | power shift |
 | `RATIO` | 3 | candidate when short-term mean power ≥ 8× (9 dB) the background mean |
 | `EMIN` | 256 | absolute floor on `Ef` (rejects digital silence and dither) |
-| `R` | 1600 (0.10 s) | refractory period; must be ≤ 5600 (the real audio after the trigger), checked by `config.validate` |
+| `R` | 1600 (0.10 s) | refractory period; must be ≤ 5760 (the real audio after the trigger), checked by `config.validate` |
 | `PRE` | 2 | a 4× (6 dB) louder candidate during the refractory period replaces the trigger |
 
 Warm-up: no trigger in the first `NF + NB − 1 = 543` samples after reset.
@@ -81,8 +81,8 @@ capture it started; only final triggers produce windows. A trigger becomes final
 
 | | Samples | Time |
 |---|---:|---:|
-| window start | trigger − 800 | −0.05 s |
-| real audio | 6400 | −0.05 s … +0.35 s around the trigger |
+| window start | trigger − 640 | −0.04 s |
+| real audio | 6400 | −0.04 s … +0.36 s around the trigger |
 | zeroed tail | 1600 | the last 0.10 s of the 0.50 s input |
 | network input | 8000 | `arith_spec.md` §5.1, unchanged |
 
@@ -92,10 +92,10 @@ file padding is never taken for signal.
 
 **Notes for Step 4.7.**
 
-- The ring buffer must hold at least 800 samples before the trigger plus 5600 after it. The tail is not captured; the
+- The ring buffer must hold at least 640 samples before the trigger plus 5760 after it. The tail is not captured; the
   read-out writes 1600 zeros.
-- `R` (1600) is shorter than the 5600 samples captured after a trigger, so a new trigger can arrive while the previous
-  window is still being captured. Training uses every such window (2,245 of the 11,186 gun windows start 1600 to 6399
+- `R` (1600) is shorter than the 5760 samples captured after a trigger, so a new trigger can arrive while the previous
+  window is still being captured. Training uses every such window (2,248 of the 11,497 gun windows start 1600 to 6399
   samples after the previous window of the same clip), so
   the capture logic needs either two windows in flight or a ring buffer of at least 6400 + 1600 samples with
   start-address bookkeeping. Choose this in Step 4.7; do not drop the second window silently.

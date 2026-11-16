@@ -19,9 +19,10 @@ Device-disjoint split (a harder second test, within the CV sessions): per gun
 source, a seeded random set of devices is held out until it holds at least
 --device-share of that source's gun clips; the quiet stretches recorded on a
 held-out device go with it, and a seeded share of the background-only sessions
-is added so the test has background. The same shot recorded on several
-devices shares a group, so this split is device-disjoint but not
-group-disjoint; the number of shared groups is recorded.
+is added so the test has background. The same shot (or Cadre run) recorded
+on several devices shares a group; every training clip whose group also has a
+clip on the test side is left out of training (train_excluded_paths), so the
+split is both device-disjoint and group-disjoint.
 
 Random split: a stratified clip-level split of the CV clips. It leaks sessions
 on purpose, to show how much that inflates accuracy.
@@ -114,9 +115,10 @@ def main() -> int:
     dev_bg = set(rng.choice(rest_bg_only, int(round(a.device_share * len(rest_bg_only))), replace=False).tolist())
     dev_test = [r for r in rest if (r["device"] and device_key(r) in held) or r["session_id"] in dev_bg]
     dev_test_paths = {r["rel"] for r in dev_test}
-    dev_train = [r for r in rest if r["rel"] not in dev_test_paths]
-    shared_groups = {r["group"] for r in dev_test if r["class"] != "background"} & \
-                    {r["group"] for r in dev_train if r["class"] != "background"}
+    test_groups = {r["group"] for r in dev_test}
+    dev_train_excluded = sorted(r["rel"] for r in rest
+                                if r["rel"] not in dev_test_paths and r["group"] in test_groups)
+    shared_groups = test_groups & {r["group"] for r in rest if r["rel"] not in dev_test_paths}
 
     _, rnd_test = train_test_split(np.arange(len(rest)), test_size=a.random_test_share, stratify=y,
                                    random_state=seeds.splits + 2)
@@ -137,7 +139,8 @@ def main() -> int:
                "stratify": "class", "folds": folds},
         "device_split": {"held_out_devices": sorted(held), "device_share": a.device_share,
                          "background_sessions": sorted(dev_bg), "shared_groups": len(shared_groups),
-                         "train": "cv pool minus test_paths", "test_paths": sorted(dev_test_paths)},
+                         "train": "cv pool minus test_paths minus train_excluded_paths",
+                         "train_excluded_paths": dev_train_excluded, "test_paths": sorted(dev_test_paths)},
         "random_split": {"test_share": a.random_test_share, "stratify": "class", "train": "cv pool minus test_paths",
                          "test_paths": sorted(rest[i]["rel"] for i in rnd_test)},
     }

@@ -3,7 +3,7 @@
   "window": {
    "sample_rate": 16000,
    "window_samples": 8000,
-   "pre_trigger_samples": 800,
+   "pre_trigger_samples": 640,
    "real_samples": 6400
   },
   "detector": {
@@ -68,8 +68,8 @@
  "gate": 0.95,
  "manifest_sha256": "5a9d14c09d59414001d354e0ff5edd648d00adeadf80bffed983f8636e06c784",
  "edge_labels_sha256": "219e242ec89b20395fc94ab519387f143b7f748939c7e72aed8a0a32fc804d15",
- "window_index_sha256": "e7b9dc854ca20d31ac6318af30770770bda46d5475911255d5173c8d1ea72f06",
- "git_commit": "8b5a3e544d677221773abc004c6aee898a7d8289",
+ "window_index_sha256": "be82c4a1a4d45ee11dd1aecc689b4a43ccfcc544049947114a495040d7016667",
+ "git_commit": "adc1c091c25068a9b84d75148819931b3c2be264",
  "limit": 0,
  "totals": {
   "clips": 7994,
@@ -84,11 +84,11 @@
   "unmatched_triggers": 14486,
   "unverified_triggers": 0,
   "preempted": 13744,
-  "windows": 11186,
-  "dropped_starts_before_audio": 383,
-  "dropped_short_after_start": 190,
+  "windows": 11497,
+  "dropped_starts_before_audio": 40,
+  "dropped_short_after_start": 222,
   "recall": 0.9873215785054577
  },
  "gate_failures": [],
- "gun_windows_npz_bytes": 100106477
+ "gun_windows_npz_bytes": 103968070
 }

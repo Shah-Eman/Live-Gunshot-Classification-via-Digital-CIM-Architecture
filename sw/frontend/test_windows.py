@@ -20,24 +20,25 @@ SR = W.sample_rate
 class TestPlacement(unittest.TestCase):
     def test_option_a_numbers(self):
         self.assertEqual((W.window_samples, W.pre_trigger_samples, W.real_samples, W.tail_samples),
-                         (8000, 800, 6400, 1600))
-        self.assertEqual(W.post_trigger_samples, 5600)
+                         (8000, 640, 6400, 1600))
+        self.assertEqual(W.post_trigger_samples, 5760)
 
     def test_cut_is_real_audio_then_zeros(self):
         x = (np.arange(10000) % 1000 + 1).astype(np.int16)
         start, why = placement(2000, len(x), W)
-        self.assertEqual((start, why), (1200, "ok"))
+        self.assertEqual((start, why), (2000 - W.pre_trigger_samples, "ok"))
         w = cut(x, start, W)
         self.assertEqual(len(w), 8000)
-        self.assertTrue(np.array_equal(w[:6400], x[1200:7600]))
+        self.assertTrue(np.array_equal(w[:6400], x[start:start + 6400]))
         self.assertFalse(np.any(w[6400:]))
 
     def test_never_pads(self):
-        self.assertEqual(placement(799, 10000, W)[1], "starts_before_audio")
-        self.assertEqual(placement(1000, 10000, W, lo=201)[1], "starts_before_audio")
-        self.assertEqual(placement(1000, 10000, W, lo=200)[1], "ok")
-        self.assertEqual(placement(800, 6399, W)[1], "short_after_start")
-        self.assertEqual(placement(800, 6400, W)[1], "ok")
+        pre = W.pre_trigger_samples
+        self.assertEqual(placement(pre - 1, 10000, W)[1], "starts_before_audio")
+        self.assertEqual(placement(1000, 10000, W, lo=1000 - pre + 1)[1], "starts_before_audio")
+        self.assertEqual(placement(1000, 10000, W, lo=1000 - pre)[1], "ok")
+        self.assertEqual(placement(pre, 6399, W)[1], "short_after_start")
+        self.assertEqual(placement(pre, 6400, W)[1], "ok")
         with self.assertRaises(AssertionError):
             cut(np.ones(7000, np.int16), 800, W)
 
@@ -49,8 +50,9 @@ class TestPlacement(unittest.TestCase):
 
     def test_c3gd_short_clip_fits_only_if_trigger_early_enough(self):
         n = int(0.4594 * SR)                     # 7350 samples
-        self.assertEqual(placement(int(0.100 * SR), n, W)[1], "ok")
-        self.assertEqual(placement(int(0.112 * SR), n, W)[1], "short_after_start")
+        last = n - W.post_trigger_samples        # latest trigger whose 0.40 s still fits
+        self.assertEqual(placement(last, n, W)[1], "ok")
+        self.assertEqual(placement(last + 1, n, W)[1], "short_after_start")
 
 
 class TestMatching(unittest.TestCase):
