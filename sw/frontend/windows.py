@@ -22,7 +22,9 @@ and gives no gun window.
 Placement (config.WindowConfig): start = trigger - pre_trigger_samples; the
 window holds real_samples of real audio from start, then zeros up to
 window_samples. A window that would start before the clip or run past its end
-is dropped, never padded.
+is dropped, never padded. The clip's real audio runs from its first to its last
+non-zero sample: zero padding inside a source file is treated like the file's
+end, so it can never enter a window either.
 """
 from __future__ import annotations
 
@@ -96,12 +98,18 @@ def match(triggers: np.ndarray, refs: list[int], ref: ReferenceConfig, sr: int) 
     return out
 
 
-def placement(trigger: int, n: int, window: WindowConfig) -> tuple[int, str]:
-    """(window start, 'ok' or the drop reason) for a trigger in a clip of n samples."""
+def audio_bounds(x: np.ndarray) -> tuple[int, int]:
+    """[first, last + 1) of the non-zero samples: exact zeros at either end of a file are padding, not audio."""
+    nz = np.flatnonzero(x)
+    return (int(nz[0]), int(nz[-1]) + 1) if len(nz) else (0, 0)
+
+
+def placement(trigger: int, hi: int, window: WindowConfig, lo: int = 0) -> tuple[int, str]:
+    """(window start, 'ok' or the drop reason) for a trigger in real audio [lo, hi)."""
     start = int(trigger) - window.pre_trigger_samples
-    if start < 0:
-        return start, "starts_before_clip"
-    if start + window.real_samples > n:
+    if start < lo:
+        return start, "starts_before_audio"
+    if start + window.real_samples > hi:
         return start, "short_after_start"
     return start, "ok"
 
@@ -129,8 +137,10 @@ def process_gun_clip(row: dict, edge_labels: dict, cfg: FrontendConfig) -> dict:
     clip = {**base, "n_samples": len(x), "verify": note, "triggers": len(trig),
             "preempted": len(det.preempted), "refs": 0, "matched": 0, "inside_other_window": 0,
             "missed": 0, "at_clip_start": 0, "beyond_clip": 0, "unmatched_triggers": 0,
-            "unverified_triggers": 0, "windows": 0, "dropped_starts_before_clip": 0,
+            "unverified_triggers": 0, "windows": 0, "dropped_starts_before_audio": 0,
             "dropped_short_after_start": 0}
+    lo, hi = audio_bounds(x)
+    clip["audio_lo"], clip["audio_hi"] = lo, hi
     if note != "ok":
         clip["unverified_triggers"] = len(trig)
         return {"clip": clip, "refs": [], "windows": []}
@@ -159,7 +169,7 @@ def process_gun_clip(row: dict, edge_labels: dict, cfg: FrontendConfig) -> dict:
     windows = []
     for i, j in sorted(pairs.items()):
         t = int(trig[i])
-        start, why = placement(t, len(x), win)
+        start, why = placement(t, hi, win, lo)
         if why != "ok":
             clip[f"dropped_{why}"] += 1
             continue

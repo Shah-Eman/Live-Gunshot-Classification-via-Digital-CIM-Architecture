@@ -48,13 +48,13 @@ from windows import GUN_SOURCES, process_gun_clip, read_edge_labels  # noqa: E40
 
 INDEX_COLS = ["path", "class", "session_id", "group", "source", "device", "trigger_sample", "window_start",
               "ref_sample", "trigger_minus_ref", "gain_shift", "verified", "flags"]
-CLIP_COLS = ["path", "class", "session_id", "group", "source", "device", "n_samples", "verify", "triggers",
+CLIP_COLS = ["path", "class", "session_id", "group", "source", "device", "n_samples", "audio_lo", "audio_hi", "verify", "triggers",
              "preempted", "refs", "matched", "inside_other_window", "missed", "at_clip_start", "beyond_clip",
-             "unmatched_triggers", "unverified_triggers", "windows", "dropped_starts_before_clip",
+             "unmatched_triggers", "unverified_triggers", "windows", "dropped_starts_before_audio",
              "dropped_short_after_start"]
 SUM_KEYS = ["clips", "unverifiable_clips", "refs", "matched", "inside_other_window", "missed", "at_clip_start",
             "beyond_clip", "triggers", "unmatched_triggers", "unverified_triggers", "preempted", "windows",
-            "dropped_starts_before_clip", "dropped_short_after_start"]
+            "dropped_starts_before_audio", "dropped_short_after_start"]
 
 _LABELS: dict = {}
 
@@ -107,29 +107,29 @@ def write_table(path: Path, table: dict, name: str) -> None:
 
 def md_table(table: dict, name: str) -> list[str]:
     lines = [f"| {name} | clips | known shots | matched | recall | inside other window | truly missed | "
-             f"unmatched triggers | preempted | windows | dropped: starts before clip | dropped: short after start "
+             f"unmatched triggers | preempted | windows | dropped: starts before audio | dropped: short after start "
              f"| unverifiable clips |",
              "|---|" + "---:|" * 12]
     for k, s in table.items():
         k = k if isinstance(k, str) else " / ".join(k)
         lines.append(f"| {k} | {s['clips']} | {s['refs']} | {s['matched']} | {100 * s['recall']:.1f} % | "
                      f"{s['inside_other_window']} | {s['missed']} | {s['unmatched_triggers']} | {s['preempted']} | "
-                     f"{s['windows']} | {s['dropped_starts_before_clip']} | {s['dropped_short_after_start']} | "
+                     f"{s['windows']} | {s['dropped_starts_before_audio']} | {s['dropped_short_after_start']} | "
                      f"{s['unverifiable_clips']} |")
     return lines
 
 
 def whatif(refs: list[dict], clips: list[dict], sr: int, real: int) -> list[str]:
     """Windows kept under other pre-trigger lengths (same 0.40 s of real audio), for D22."""
-    n_of = {c["path"]: c["n_samples"] for c in clips}
+    bounds = {c["path"]: (c["audio_lo"], c["audio_hi"]) for c in clips}
     matched = [r for r in refs if r["outcome"] == "matched"]
-    lines = ["| pre-trigger | windows kept | dropped: starts before clip | dropped: short after start |",
+    lines = ["| pre-trigger | windows kept | dropped: starts before audio | dropped: short after start |",
              "|---|---:|---:|---:|"]
     for pre_s in (0.03, 0.04, 0.05):
         pre = int(round(pre_s * sr))
-        before = sum(1 for r in matched if r["trigger_sample"] - pre < 0)
-        after = sum(1 for r in matched if r["trigger_sample"] - pre >= 0 and
-                    r["trigger_sample"] - pre + real > n_of[r["path"]])
+        before = sum(1 for r in matched if r["trigger_sample"] - pre < bounds[r["path"]][0])
+        after = sum(1 for r in matched if r["trigger_sample"] - pre >= bounds[r["path"]][0] and
+                    r["trigger_sample"] - pre + real > bounds[r["path"]][1])
         lines.append(f"| {pre_s:.2f} s | {len(matched) - before - after} | {before} | {after} |")
     return lines
 
@@ -214,8 +214,8 @@ def main() -> int:
           f"not counted), {total['beyond_clip']} labelled past the clip end (not counted). "
           f"{total['triggers']} triggers: {total['unmatched_triggers']} unmatched (echoes, other shooters; never "
           f"windows), {total['unverified_triggers']} in unverifiable clips, {total['preempted']} preempted. "
-          f"{total['windows']} gun windows kept; dropped by placement: {total['dropped_starts_before_clip']} start "
-          f"before the clip, {total['dropped_short_after_start']} have less than {real / sr:.2f} s after the start.", ""]
+          f"{total['windows']} gun windows kept; dropped by placement: {total['dropped_starts_before_audio']} start "
+          f"before the clip audio, {total['dropped_short_after_start']} have less than {real / sr:.2f} s after the start.", ""]
     for name, title in (("source", "Per source"), ("class", "Per class"), ("session", "Per session"),
                         ("source_class_session", "Per source, class and session")):
         md += [f"## {title}", ""] + md_table(tables[name], name) + [""]

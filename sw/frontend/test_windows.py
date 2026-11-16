@@ -11,7 +11,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from audio import apply_gain, gain_shift, normalise, to_int16  # noqa: E402
 from config import FRONTEND  # noqa: E402
-from windows import cut, match, placement, reference_samples  # noqa: E402
+from windows import audio_bounds, cut, match, placement, reference_samples  # noqa: E402
 
 W, G, R = FRONTEND.window, FRONTEND.gain, FRONTEND.reference
 SR = W.sample_rate
@@ -33,11 +33,19 @@ class TestPlacement(unittest.TestCase):
         self.assertFalse(np.any(w[6400:]))
 
     def test_never_pads(self):
-        self.assertEqual(placement(799, 10000, W)[1], "starts_before_clip")
+        self.assertEqual(placement(799, 10000, W)[1], "starts_before_audio")
+        self.assertEqual(placement(1000, 10000, W, lo=201)[1], "starts_before_audio")
+        self.assertEqual(placement(1000, 10000, W, lo=200)[1], "ok")
         self.assertEqual(placement(800, 6399, W)[1], "short_after_start")
         self.assertEqual(placement(800, 6400, W)[1], "ok")
         with self.assertRaises(AssertionError):
             cut(np.ones(7000, np.int16), 800, W)
+
+    def test_file_padding_is_not_audio(self):
+        x = np.zeros(10000, np.int16)
+        x[487:9000] = 5
+        self.assertEqual(audio_bounds(x), (487, 9000))
+        self.assertEqual(audio_bounds(np.zeros(5, np.int16)), (0, 0))
 
     def test_c3gd_short_clip_fits_only_if_trigger_early_enough(self):
         n = int(0.4594 * SR)                     # 7350 samples

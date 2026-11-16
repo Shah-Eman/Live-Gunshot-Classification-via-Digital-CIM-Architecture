@@ -39,7 +39,7 @@ from audio import load_clip  # noqa: E402
 from config import FRONTEND  # noqa: E402
 from detector import detect  # noqa: E402
 from manifest import load_manifest  # noqa: E402
-from windows import placement  # noqa: E402
+from windows import audio_bounds, placement  # noqa: E402
 
 HF_EDGE_HZ = 5500.0      # a clip recorded at 11.025 kHz has nothing above this
 
@@ -72,7 +72,8 @@ def scan(row: dict) -> dict:
                zero_run=longest_zero_run(x), rolloff_hz=round(roll, 1), hf_db=round(hf, 2), triggers="")
     if row["class"] == "background":
         t = detect(x, cfg.detector).triggers
-        out["triggers"] = " ".join(str(int(v)) for v in t if placement(int(v), len(x), cfg.window)[1] == "ok")
+        lo, hi = audio_bounds(x)
+        out["triggers"] = " ".join(str(int(v)) for v in t if placement(int(v), hi, cfg.window, lo)[1] == "ok")
     return out
 
 
