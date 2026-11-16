@@ -1,0 +1,94 @@
+{
+ "config": {
+  "window": {
+   "sample_rate": 16000,
+   "window_samples": 8000,
+   "pre_trigger_samples": 800,
+   "real_samples": 6400
+  },
+  "detector": {
+   "fast_samples": 32,
+   "background_samples": 512,
+   "power_shift": 4,
+   "ratio_log2": 3,
+   "min_energy": 256,
+   "refractory_samples": 1600,
+   "preempt_log2": 2
+  },
+  "gain": {
+   "max_shift": 10
+  },
+  "reference": {
+   "match_before_s": 0.1,
+   "match_after_s": 0.05,
+   "c3gd_preroll_s": 0.1,
+   "c3gd_preroll_by_session": {
+    "c3gd_nj_farm": 0.046
+   },
+   "cadre_search_s": 0.1
+  },
+  "background": {
+   "min_native_sr": 16000,
+   "silence_rms_dbfs": -70.0,
+   "max_zero_run": 160,
+   "bg_per_gun": 0.5,
+   "share_gunmic": 0.2,
+   "share_gunmic_mixed": 0.5,
+   "share_triggered": 0.4,
+   "gun_mix_prob": 0.3,
+   "snr_db": [
+    0.0,
+    20.0
+   ],
+   "min_gunmic_share": 0.15,
+   "max_tries": 20
+  },
+  "seeds": {
+   "splits": 16,
+   "background_test_sessions": 1623,
+   "epochs": 2026,
+   "listen": 7
+  },
+  "adc_bits": 16
+ },
+ "register_widths": {
+  "x": 16,
+  "d": 17,
+  "d2": 32,
+  "p": 28,
+  "Ef": 33,
+  "Eb": 37,
+  "ratio_lhs": 37,
+  "ratio_rhs": 40,
+  "Epk": 33,
+  "preempt_rhs": 35,
+  "R_cnt": 11,
+  "delay_line_entries": 544
+ },
+ "gate": 0.95,
+ "manifest_sha256": "5a9d14c09d59414001d354e0ff5edd648d00adeadf80bffed983f8636e06c784",
+ "edge_labels_sha256": "219e242ec89b20395fc94ab519387f143b7f748939c7e72aed8a0a32fc804d15",
+ "window_index_sha256": "e7b9dc854ca20d31ac6318af30770770bda46d5475911255d5173c8d1ea72f06",
+ "git_commit": "8b5a3e544d677221773abc004c6aee898a7d8289",
+ "limit": 0,
+ "totals": {
+  "clips": 7994,
+  "unverifiable_clips": 0,
+  "refs": 11910,
+  "matched": 11759,
+  "inside_other_window": 58,
+  "missed": 93,
+  "at_clip_start": 6,
+  "beyond_clip": 0,
+  "triggers": 26245,
+  "unmatched_triggers": 14486,
+  "unverified_triggers": 0,
+  "preempted": 13744,
+  "windows": 11186,
+  "dropped_starts_before_audio": 383,
+  "dropped_short_after_start": 190,
+  "recall": 0.9873215785054577
+ },
+ "gate_failures": [],
+ "gun_windows_npz_bytes": 100106477
+}

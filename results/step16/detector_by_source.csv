@@ -1,0 +1,4 @@
+source,recall,clips,unverifiable_clips,refs,matched,inside_other_window,missed,at_clip_start,beyond_clip,triggers,unmatched_triggers,unverified_triggers,preempted,windows,dropped_starts_before_audio,dropped_short_after_start
+c3gd,0.9835,4233,0,4233,4163,0,70,0,0,6932,2769,0,7073,3638,375,150
+cadre,0.9959,1712,0,1712,1705,7,0,0,0,6245,4540,0,2049,1702,1,2
+edge,0.9876,2049,0,5965,5891,51,23,6,0,13068,7177,0,4622,5846,7,38
