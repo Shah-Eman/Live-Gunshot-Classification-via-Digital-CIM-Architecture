@@ -1,5 +1,6 @@
 numpy
 tensorflow
+keras>=3
 scikit-learn
 librosa
 soundfile

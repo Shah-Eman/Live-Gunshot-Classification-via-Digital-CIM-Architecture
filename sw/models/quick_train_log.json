@@ -1,0 +1,54 @@
+{
+  "note": "Step 1.1 sanity-check model. Random clip split leaks sessions: never quote its accuracy. The final model comes from Steps 1.6-1.9.",
+  "classes": [
+    "pistol_9mm",
+    "revolver_38spl",
+    "rifle_556_223",
+    "shotgun_12ga",
+    "background"
+  ],
+  "windows_per_class": {
+    "pistol_9mm": 4599,
+    "revolver_38spl": 1179,
+    "rifle_556_223": 3066,
+    "shotgun_12ga": 1093,
+    "background": 6000
+  },
+  "skipped_clips": {},
+  "train_windows": 12749,
+  "val_windows": 3188,
+  "class_weights": {
+    "pistol_9mm": 0.6931,
+    "revolver_38spl": 2.7039,
+    "rifle_556_223": 1.0395,
+    "shotgun_12ga": 2.9174,
+    "background": 0.5312
+  },
+  "epochs": 5,
+  "batch": 64,
+  "seed": 20261116,
+  "max_background": 6000,
+  "shots_per_clip": 3,
+  "loss": [
+    1.5346,
+    1.3342,
+    1.2597,
+    1.2117,
+    1.1818
+  ],
+  "val_loss": [
+    1.3585,
+    1.1567,
+    1.1181,
+    1.0646,
+    1.0809
+  ],
+  "checks": {
+    "training_loss_fell": true,
+    "validation_loss_fell": true,
+    "beats_chance_balanced_accuracy": true
+  },
+  "keras": "3.15.1",
+  "backend": "jax",
+  "python": "3.12.3"
+}
