@@ -106,15 +106,14 @@ class BackgroundConfig:
     """Per-epoch background sampling (sw/frontend/background.py)."""
 
     min_native_sr: int = 16000        # drop clips recorded below this (the 55 clips of dataset_audit.md 4.3)
-    silence_rms_dbfs: float = -50.0   # reject a window whose real part is quieter than this
+    silence_rms_dbfs: float = -70.0   # reject a near-silent window (quiet stretches sit at -67..-42 dBFS RMS)
     max_zero_run: int = 160           # reject a window holding an exact-zero run longer than 10 ms (padding)
     bg_per_gun: float = 0.5           # background windows per gun window in an epoch
     share_gunmic: float = 0.20        # edge-quiet / cadre-quiet crops, half of them with an event mixed on
     share_gunmic_mixed: float = 0.5   # fraction of the gun-mic share that gets a US8K/ESC-50 event mixed on
     share_triggered: float = 0.40     # windows cut by the detector, same placement as gun windows
     gun_mix_prob: float = 0.30        # gun windows mixed onto US8K/ESC-50 noise
-    snr_db: tuple = (0.0, 20.0)       # gun-over-noise SNR range for mixing
-    event_gain_db: tuple = (-20.0, 0.0)  # event level relative to its own normalised peak when mixed onto quiet
+    snr_db: tuple = (0.0, 20.0)       # SNR range for mixing: gun over noise, and event over quiet stretch
     min_gunmic_share: float = 0.15    # review gate (runbook Step 1.6 item 5)
     max_tries: int = 20
 
