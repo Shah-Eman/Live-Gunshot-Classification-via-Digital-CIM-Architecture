@@ -14,7 +14,7 @@ Review-gate items covered here
   positive weight, alternating signs, maximum-size inputs (EdgeCases).
 * Every claim of spec 4.6 and 6.4 (BitSplit, PerCycle, Widths).
 * The spec 7 worked example, cycle by cycle (WorkedExample).
-* The tests themselves can catch a broken tile: four deliberately wrong tiles
+* The tests themselves can catch a broken tile: five deliberately wrong tiles
   are each caught by the directed edge cases alone (BrokenTilesAreCaught).
 
 Every random draw uses a fixed seed, so a failure reproduces exactly.
@@ -30,13 +30,25 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import tile_model as tm  # noqa: E402
+from tile_cases import SEED, edge_batch, edge_cases  # noqa: E402
 from tile_model import (  # noqa: E402
     COLS, ROWS, CimTile, TileOverflowError, TileScheduleError,
-    bit_plane, bit_planes, bitserial_dot, numpy_reference, shift_term)
+    bit_plane, bit_planes, bitserial_dot, shift_term)
 
-SEED = 20261029
 N_RANDOM = 100_000          # runbook Step 1.4, item 3
 CHUNK = 10_000              # keeps the int64 working arrays small
+N_CYCLE_CHECK = 5_000       # vectors run through CimTile and checked cycle by cycle
+
+
+def numpy_reference(W, a) -> np.ndarray:
+    """The golden answer: ordinary integer `W.T @ a` in int64 (runbook Step 1.4).
+
+    Kept here, outside tile_model.py, so an edit to the model can never change
+    the answer it is checked against. Accepts the same shapes as `bitserial_dot`.
+    """
+    W64 = np.asarray(W).astype(np.int64)
+    a64 = np.asarray(a).astype(np.int64)
+    return np.matmul(np.swapaxes(W64, -1, -2), a64[..., None])[..., 0]
 
 
 def rng(offset: int = 0) -> np.random.Generator:
@@ -61,84 +73,6 @@ def mismatches(W, a, **kw) -> int:
     got = bitserial_dot(W, a, **kw)
     want = numpy_reference(W, a)
     return int(np.count_nonzero(np.any(got != want, axis=-1)))
-
-
-# --------------------------------------------------------------------------
-# Directed edge cases, as (name, W, a) with W (16,16) and a (16,)
-# --------------------------------------------------------------------------
-def edge_cases() -> list[tuple[str, np.ndarray, np.ndarray]]:
-    g = rng(1)
-    cases: list[tuple[str, np.ndarray, np.ndarray]] = []
-
-    def full(W_val=None):
-        return np.full((ROWS, COLS), W_val, dtype=np.int8)
-
-    alt_rows = np.where(np.arange(ROWS) % 2 == 0, 1, -1).astype(np.int8)
-    alt_w = (alt_rows[:, None] * np.ones(COLS, dtype=np.int8)[None, :]).astype(np.int8)
-    ramp_w = (np.arange(ROWS * COLS).reshape(ROWS, COLS) % 255 - 127).astype(np.int8)
-    weight_sets = {
-        "randW": randint8(g, (ROWS, COLS)),
-        "W=127": full(127), "W=-128": full(-128), "W=-127": full(-127),
-        "W=1": full(1), "W=-1": full(-1), "W=0": full(0), "W=5": full(5),
-        "Walt": alt_w, "Wramp": ramp_w,
-    }
-    act_sets = {
-        "a=-128": np.full(ROWS, -128, np.int8), "a=127": np.full(ROWS, 127, np.int8),
-        "a=0": np.zeros(ROWS, np.int8), "a=-1": np.full(ROWS, -1, np.int8),
-        "a=1": np.full(ROWS, 1, np.int8), "a=-127": np.full(ROWS, -127, np.int8),
-        "aalt": (alt_rows * 127).astype(np.int8),
-        "aalt128": np.where(np.arange(ROWS) % 2 == 0, -128, 127).astype(np.int8),
-        "aramp": (np.arange(ROWS) * 17 - 128).astype(np.int8),
-        "arand": randint8(g, (ROWS,)),
-    }
-
-    # The four named by the runbook and spec 8.2, each against every weight set
-    # and every activation set (all combinations, 100 cases).
-    for wn, W in weight_sets.items():
-        for an, a in act_sets.items():
-            cases.append((f"{wn}|{an}", W.copy(), a.copy()))
-
-    # Largest possible magnitudes (spec 6.4): +262,144, -260,096, ...
-    for wv in (-128, 127):
-        for av in (-128, 127):
-            cases.append((f"max W={wv} a={av}", full(wv), np.full(ROWS, av, np.int8)))
-
-    # A single -128 activation on row r with a positive weight must give a
-    # NEGATIVE result: the bit-7 subtract (spec 4.6 item 3). Every row.
-    for r in range(ROWS):
-        a = np.zeros(ROWS, np.int8)
-        a[r] = -128
-        cases.append((f"single -128 on row {r}, W=+5", full(5), a))
-        W = np.zeros((ROWS, COLS), np.int8)
-        W[r, :] = np.arange(COLS) - 8          # positive, zero and negative weights
-        cases.append((f"single -128 on row {r}, W row mixed", W, a.copy()))
-
-    # Every single-bit pattern and every single-bit-cleared pattern, on all rows
-    # (positive and negative, so each of the 8 bit positions is the only 1, and
-    # the only 0, in turn).
-    patterns = sorted({1 << k for k in range(7)} | {-(1 << k) for k in range(8)}
-                      | {127 ^ (1 << k) for k in range(7)} | {-1 - (1 << k) for k in range(7)})
-    for v in patterns:
-        cases.append((f"pattern {v}", weight_sets["randW"].copy(), np.full(ROWS, v, np.int8)))
-
-    # Orientation: distinct weight in every cell and a distinct activation on
-    # every row, so W.T @ a, W @ a and row/column swaps all disagree.
-    cases.append(("orientation", ramp_w.copy(), (np.arange(ROWS) * 3 - 20).astype(np.int8)))
-    # One-hot columns: column c copies activation c, so psum == a exactly.
-    eye = np.eye(ROWS, COLS, dtype=np.int8)
-    cases.append(("identity weights", eye, (np.arange(ROWS) * 17 - 128).astype(np.int8)))
-    cases.append(("reversed identity", eye[::-1].copy(), (np.arange(ROWS) * 17 - 128).astype(np.int8)))
-
-    # Exported-weight range [-127, 127] (spec 2.2) at the extremes.
-    cases.append(("exported W=-127 a=-128", full(-127), np.full(ROWS, -128, np.int8)))
-    cases.append(("exported W=127 a=-128", full(127), np.full(ROWS, -128, np.int8)))
-    return cases
-
-
-def edge_batch() -> tuple[np.ndarray, np.ndarray]:
-    cs = edge_cases()
-    return np.stack([c[1] for c in cs]), np.stack([c[2] for c in cs])
-
 
 
 # --------------------------------------------------------------------------
@@ -400,14 +334,12 @@ class PerCycle(unittest.TestCase):
             np.testing.assert_array_equal(shift_term(P, b), P * (1 << b))
         np.testing.assert_array_equal(shift_term(P, 7), -P * 128)
 
-    def test_batch_path_equals_cycle_model_cycle_by_cycle(self):
-        g = rng(35)
-        n = 300
-        W = extreme_int8(g, (n, ROWS, COLS))
-        a = extreme_int8(g, (n, ROWS))
+    def _check_cycle_model(self, W, a):
+        """CimTile against numpy and against the batch path, every cycle."""
         psum, tr = bitserial_dot(W, a, trace=True)
+        np.testing.assert_array_equal(psum, numpy_reference(W, a))
         tile = CimTile()
-        for i in range(n):
+        for i in range(len(W)):
             tile.load_weights(W[i])
             np.testing.assert_array_equal(tile.run(a[i]), psum[i])
             for b, rec in enumerate(tile.trace):
@@ -415,6 +347,16 @@ class PerCycle(unittest.TestCase):
                 np.testing.assert_array_equal(rec.P, tr["P"][b][i])
                 np.testing.assert_array_equal(rec.term, tr["term"][b][i])
                 np.testing.assert_array_equal(rec.T, tr["T"][b][i])
+
+    def test_batch_path_equals_cycle_model_cycle_by_cycle(self):
+        g = rng(35)
+        self._check_cycle_model(extreme_int8(g, (N_CYCLE_CHECK, ROWS, COLS)),
+                                extreme_int8(g, (N_CYCLE_CHECK, ROWS)))
+
+    def test_cycle_model_on_every_edge_case(self):
+        # Step 3.1 debugs the RTL against CimTile, so CimTile itself must pass
+        # every directed case, not only the batch path.
+        self._check_cycle_model(*edge_batch())
 
 
 class Widths(unittest.TestCase):
@@ -569,6 +511,13 @@ class BpcAndValidation(unittest.TestCase):
         for bpc in (0, 3, 16, -1):
             with self.assertRaises(ValueError):
                 CimTile(bpc=bpc)
+
+    def test_bpc_must_be_a_real_integer(self):
+        # True == 1 and 1.0 == 1 in Python; neither may pass as BPC = 1.
+        for bpc in (True, False, 1.0, 2.0, "1", None):
+            with self.assertRaises(TypeError):
+                CimTile(bpc=bpc)
+        CimTile(bpc=np.int64(1))
 
     def test_rejects_floats_and_bools(self):
         t = CimTile()

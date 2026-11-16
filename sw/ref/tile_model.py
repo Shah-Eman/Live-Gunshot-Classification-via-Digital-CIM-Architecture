@@ -40,8 +40,8 @@ spec                                   code
 4.4  T += P << b, T -= P << 7          `shift_term`, `CimTile.step`
 4.4  T cleared per chunk, 8 cycles     `CimTile.clear`, `CimTile.run`
 4.5  signed shift is multiply by 2^b   `shift_term` (uses `*`, never `<<` on P)
-4.6  P and T never leave their widths  `_check_width` (P: 12 bit, T: 20 bit)
-6.4  P 12 bits signed, T 20 bits       `P_BITS`, `T_BITS`
+4.6  P, T never leave their widths    `_check_width` (P: 12 bit; term, T: 20 bit)
+6.4  P 12 bits, term and T 20 bits     `P_BITS`, `T_BITS`
 =====================================  ==============================================
 
 Rules this file follows (spec 1.1 and runbook Step 1.3):
@@ -65,6 +65,10 @@ Two ways to use it
   very same `bit_plane` / `and_mask` / `adder_tree` / `shift_term` functions,
   so it is the same arithmetic, not a second implementation. The tests check
   the two paths against each other, cycle by cycle.
+
+The directed edge cases live in `tile_cases.py`, shared with Steps 1.5 and 3.1.
+The numpy golden answer `W.T @ a` lives in the tests, not here, so editing
+this file cannot change what it is checked against.
 
 Run `python sw/ref/tile_model.py` to print the spec section 7 worked example
 cycle by cycle (the table the Step 1.2 review gate asked two people to redo).
@@ -135,6 +139,9 @@ def _check_width(name: str, x: np.ndarray, bits: int) -> None:
 
 
 def _check_bpc(bpc: int) -> None:
+    # bool and float compare equal to 1 in Python; refuse them outright.
+    if isinstance(bpc, (bool, np.bool_)) or not isinstance(bpc, (int, np.integer)):
+        raise TypeError(f"BPC must be an integer, got {bpc!r} ({type(bpc).__name__})")
     if bpc in SUPPORTED_BPC:
         return
     if bpc in _FUTURE_BPC:
@@ -318,6 +325,11 @@ class CimTile:
         `plane` is bit `bit_index` of the 16 activations (16 values, 0 or 1),
         which is what the RTL receives. The schedule is fixed: bit_index must be
         0, 1, ..., 7 in that order, after `clear()`.
+
+        Planned change (Step 2.5, D24): with BPC > 1 a cycle takes BPC
+        bit-planes at once, so `plane` becomes shape (BPC, ROWS) and
+        `bit_index` the lowest bit of the group. Code built on `step()` before
+        then (Step 2.2) should go through `run()` where it can.
         """
         if self._W is None:
             raise TileScheduleError("no weights loaded")
@@ -333,6 +345,7 @@ class CimTile:
         P = adder_tree(and_mask(self._W, plane64))
         _check_width("P", P, self._p_bits)
         term = self._term_fn(P, bit_index)
+        _check_width("term", term, self._t_bits)
         T = self._T + term
         _check_width("T", T, self._t_bits)
 
@@ -391,6 +404,7 @@ def bitserial_dot(W, a, *, bpc: int = 1, p_bits: int = P_BITS, t_bits: int = T_B
         P = adder_tree(and_mask(W64, plane))
         _check_width("P", P, p_bits)
         term = term_fn(P, b)
+        _check_width("term", term, t_bits)
         T = T + term
         _check_width("T", T, t_bits)
         if trace:
@@ -402,17 +416,6 @@ def bitserial_dot(W, a, *, bpc: int = 1, p_bits: int = P_BITS, t_bits: int = T_B
         return T
     return T, {"plane": np.stack(planes), "P": np.stack(Ps),
                "term": np.stack(terms), "T": np.stack(Ts)}
-
-
-def numpy_reference(W, a) -> np.ndarray:
-    """The golden answer: ordinary integer `W.T @ a` in int64 (runbook Step 1.4).
-
-    Accepts the same shapes as `bitserial_dot`. It does not go through any of
-    the tile code, so it is an independent check.
-    """
-    W64 = np.asarray(W).astype(np.int64)
-    a64 = np.asarray(a).astype(np.int64)
-    return np.matmul(np.swapaxes(W64, -1, -2), a64[..., None])[..., 0]
 
 
 # --------------------------------------------------------------------------
@@ -440,7 +443,7 @@ def _print_worked_example() -> None:
         bits = ", ".join(str(int(v)) for v in rec.plane[:4])
         print(f"   {rec.bit_index}    | {bits:<17} | {int(rec.P[0]):>2}"
               f"| {int(rec.term[0]):>17} | {int(rec.T[0]):>6}")
-    direct = int(numpy_reference(W, a)[0])
+    direct = int(np.dot(W[:, 0].astype(np.int64), a.astype(np.int64)))
     print(f"\nbit-serial result {int(psum[0])}   direct sum(w*a) {direct}   "
           f"{'MATCH' if int(psum[0]) == direct else 'MISMATCH'}")
 
