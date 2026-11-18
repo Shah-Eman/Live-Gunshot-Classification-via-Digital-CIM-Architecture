@@ -1,0 +1,4 @@
+sample_rate,adc_bits,window_s,input_samples,macs,params,macro_f1_mean,macro_f1_std,bal_acc_mean,bal_acc_std,within_1pp_of_best,chosen
+8000,10,0.25,2000,663712,15093,0.40973,0.01597,0.42105,0.0143,False,False
+8000,10,0.4,3200,1075360,15093,0.42375,0.01461,0.43237,0.01302,True,True
+8000,10,0.5,4000,1348256,15093,0.41423,0.01958,0.42619,0.01643,True,False
