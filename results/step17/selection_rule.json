@@ -1,0 +1,34 @@
+{
+  "metric": "3-seed mean of pooled 5-fold session-disjoint CV macro_f1",
+  "margin_below_best": 0.01,
+  "grid_cost_order": [
+    "sample_rate ASC",
+    "adc_bits ASC"
+  ],
+  "window_cost_order": [
+    "total_macs ASC",
+    "window_s ASC"
+  ],
+  "rates_hz": [
+    8000,
+    16000,
+    22050
+  ],
+  "bits": [
+    16,
+    12,
+    10,
+    8,
+    6
+  ],
+  "windows_s": [
+    0.25,
+    0.4,
+    0.5
+  ],
+  "seeds": [
+    1701,
+    1702,
+    1703
+  ]
+}
