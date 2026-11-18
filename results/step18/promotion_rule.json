@@ -1,0 +1,11 @@
+{
+  "2d_over_1d_margin_macro_f1": 0.05,
+  "w64_over_base_1d_margin_macro_f1": 0.01,
+  "budget_max_macs": 4000000,
+  "budget_max_params": 30000,
+  "seeds": [
+    1801,
+    1802,
+    1803
+  ]
+}

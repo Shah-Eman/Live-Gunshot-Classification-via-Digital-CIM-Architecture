@@ -301,6 +301,63 @@ within `1.0` percentage point (`0.01`) of the grid maximum, then at that `(rate,
 
 ---
 
+## D24. Hardware model selection (Step 1.8 float model suite, for Step 1.9 freeze)
+
+| Field | Value |
+|---|---|
+| Step | S1.8 (`sw/train/run_step18.py`, `results/step18/step18_report.md`) |
+| Needed by | Step 1.9 (architecture freeze gate), Step 1.10 (PTQ quantization) |
+| Status | **Proposed**, waiting for Step 1.9 team sign-off |
+| Decided by | (to be filled in) |
+| Date | (to be filled in) |
+
+**The question.** Within the hardware budget (`≤ 4.0 M` MACs, `≤ 30 k` parameters, tile-friendly multiples of 16),
+does a spectrogram 2D-CNN beat the raw-waveform 1D-CNN by more than the pre-registered `+5.0` percentage-point
+macro-F1 promotion margin, or does the raw-waveform 1D-CNN stay the frozen hardware architecture?
+
+**Pre-registered promotion rule** (`results/step18/promotion_rule.json`, committed before training): `cnn2d_mel`
+replaces `cnn1d` in hardware only if `macro_f1(cnn2d_mel) − macro_f1(cnn1d) > 0.05` (`+5.0` pp) on pooled 5-fold
+session-disjoint CV (`3` seeds); `cnn1d_w64` (`conv3 = 64`) replaces base `cnn1d` (`conv3 = 32`) only if it gains
+`> 0.01` (`+1.0` pp).
+
+**Measured candidate suite** (`results/step18/model_comparison.csv`, script-computed DSP + neural MACs):
+
+| Model | DSP MACs | Classifier MACs | Total MACs | Params | Budget OK | Pooled Macro-F1 | Balanced Acc | `.38` Recall |
+|---|---:|---:|---:|---:|:---:|---:|---:|---:|
+| `cnn1d` (`8 kHz, 10b, 0.40 s`) | 0 | 1,075,360 | 1,075,360 | 15,093 | yes | 41.02 ± 0.87 % | 41.57 % | 35.3 % |
+| `cnn1d_bn` (folded into `cnn1d`) | 0 | 1,075,360 | 1,075,360 | 15,093 | yes | 42.24 ± 0.15 % | 43.00 % | 32.7 % |
+| `cnn1d_spec51` (`16 kHz, 16b, 0.50 s`) | 0 | 2,731,168 | 2,731,168 | 15,093 | yes | 42.36 ± 0.70 % | 44.76 % | 50.8 % |
+| `cnn1d_w64` (`conv3 = 64`) | 0 | 1,296,704 | 1,296,704 | 24,501 | yes | 40.20 ± 1.52 % | 40.23 % | 31.1 % |
+| `cnn2d_mel` (log-mel 2D-CNN) | 83,577 | 2,244,256 | 2,327,833 | 14,213 | yes | 42.85 ± 0.79 % | 42.60 % | 10.2 % |
+| `dscnn` (log-mel DS-CNN) | 83,577 | 1,370,432 | 1,454,009 | 9,797 | yes | 41.66 ± 0.61 % | 41.78 % | 26.2 % |
+| `mfcc_svm_linear` | 99,801 | 468 | 100,269 | 551 | yes | 45.22 ± 0.16 % | 46.41 % | 43.9 % |
+| `mfcc_svm_rbf` | 99,801 | 858,749 | 958,550 | 858,837 | no (SVs) | 41.86 ± 0.53 % | 41.88 % | 20.1 % |
+
+**Leakage & split-regime falsification (`results/step18/leakage_and_splits.json`):**
+- **Session-disjoint 5-fold CV vs. Device-disjoint vs. Random clip split (`cnn1d`):**
+  `41.02 %` (session-disjoint) → `54.89 %` (group-disjoint unseen microphones, `.38` recall `72.5 %`) → **`68.44 %`**
+  (random clip split, `.38` recall `74.4 %`) — proving naive clip splits inflate macro-F1 by **`+27.4` percentage
+  points** via session memorisation.
+- **`38 ms` pre-trigger background-noise leakage check (4 firearm classes, `25.0 %` chance):**
+  - Session-disjoint 5-fold CV: **`21.00 %` balanced accuracy (`20.36 %` macro-F1)** — at/below random chance (`0`
+    ambient-noise shortcut).
+  - Random clip split: **`43.49 %` balanced accuracy (`39.14 %` macro-F1)** — nearly double chance before the shot
+    even occurs.
+
+**Proposed choice: keep the raw-waveform `cnn1d` hardware architecture (`cnn1d_bn` folded training recipe; choose D6
+`8 kHz / 0.40 s` vs `arith_spec.md` §5.1 `16 kHz / 0.50 s` at Step 1.9).**
+- `cnn2d_mel` exceeds `cnn1d` by `+1.83` pp (`+0.61` pp vs folded `cnn1d_bn`, `+0.49` pp vs `cnn1d_spec51`), well
+  under the `+5.0` pp threshold, requires an STFT/mel front end, and drops `.38` recall to `10.2 %`.
+- BatchNormalization folding into `cnn1d` (`fold_batchnorm_1d`) is verified to `1.53 × 10⁻⁵` max logit difference in
+  IEEE `float32`, improving stability (`±0.15 %` std) at zero hardware cost.
+- Note for Step 1.9 (`docs/runbook.md` *"If it fails"*): unweighted 5-class session-disjoint CV macro-F1 (`~42–45 %`
+  across all models, while `background` recall is `92–97 %` and overall accuracy is `~71 %`) is bounded by `12 ga`
+  cross-dataset sparsity (`0` Cadre clips; `65 %` of CV `12 ga` windows sit in `edge-day1`). Decide with Sir at Step
+  1.9 whether to freeze 5-class `cnn1d` as-is or also report a 4-class merged head (`handgun / rifle / shotgun /
+  background`), which costs zero hardware changes (`dense` uses 4 of 16 tile columns instead of 5).
+
+---
+
 ## Confirmations needed from the model owner (T1.1)
 
 These are not choices. They are facts about `sw/models/cnn1d.py` that `docs/arith_spec.md` §5 assumes. They have to be

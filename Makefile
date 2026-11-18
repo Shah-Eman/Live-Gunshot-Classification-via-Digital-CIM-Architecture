@@ -30,7 +30,7 @@ RTL := $(RTL_CORE) $(RTL_BOARD)
 
 .PHONY: test_py tile_demo model_table train_quick sim synth bit clean \
         test_frontend windows scan splits check_splits check_windows listen step16_checks \
-        test_train step17
+        test_train step17 step18
 
 # ------------------------------------------------------------------
 # Python tests (Step 1.4 tile model; later steps add their tests here)
@@ -109,6 +109,10 @@ step17:
 	  --window-index "$(RESULTS)/window_index.csv" --background-index "$(RESULTS)/background_index.csv" \
 	  --gun-npz "$(OUT)/gun_windows.npz"
 
+step18:
+	$(KERAS_PYTHON) sw/train/run_step18.py --manifest "$(MANIFEST)" --splits "$(SPLITS)" \
+	  --window-index "$(RESULTS)/window_index.csv" --background-index "$(RESULTS)/background_index.csv" \
+	  --gun-npz "$(OUT)/gun_windows.npz"
 
 # ------------------------------------------------------------------
 # Simulation (cocotb + Icarus Verilog)
