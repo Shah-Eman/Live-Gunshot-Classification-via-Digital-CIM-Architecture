@@ -29,7 +29,8 @@ RTL_BOARD := $(wildcard rtl/board/$(BOARD)/*.sv)
 RTL := $(RTL_CORE) $(RTL_BOARD)
 
 .PHONY: test_py tile_demo model_table train_quick sim synth bit clean \
-        test_frontend windows scan splits check_splits check_windows listen step16_checks
+        test_frontend windows scan splits check_splits check_windows listen step16_checks \
+        test_train step17
 
 # ------------------------------------------------------------------
 # Python tests (Step 1.4 tile model; later steps add their tests here)
@@ -94,6 +95,20 @@ model_table:
 # Quick sanity-check model; never quote its accuracy
 train_quick:
 	$(PYTHON) sw/models/train_quick.py --manifest "$(MANIFEST)" --edge-labels "$(EDGE_LABELS_ONLY)"
+
+# ------------------------------------------------------------------
+# Steps 1.7 & 1.8: ADC sweep and float model suite (KERAS_BACKEND=jax)
+# ------------------------------------------------------------------
+KERAS_PYTHON ?= XLA_PYTHON_CLIENT_PREALLOCATE=false KERAS_BACKEND=jax ../.venv-keras/bin/python
+
+test_train:
+	$(KERAS_PYTHON) -m unittest sw/train/test_train.py -v
+
+step17:
+	$(KERAS_PYTHON) sw/train/run_step17.py --manifest "$(MANIFEST)" --splits "$(SPLITS)" \
+	  --window-index "$(RESULTS)/window_index.csv" --background-index "$(RESULTS)/background_index.csv" \
+	  --gun-npz "$(OUT)/gun_windows.npz"
+
 
 # ------------------------------------------------------------------
 # Simulation (cocotb + Icarus Verilog)
