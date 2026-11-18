@@ -16,8 +16,10 @@ import os
 from typing import Callable
 
 os.environ.setdefault("KERAS_BACKEND", "jax")
+os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
 
 import jax
+jax.config.update("jax_default_matmul_precision", "float32")
 import jax.numpy as jnp
 import keras
 import numpy as np

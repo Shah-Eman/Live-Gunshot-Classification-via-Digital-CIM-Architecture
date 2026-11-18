@@ -19,6 +19,8 @@ import math
 import sys
 from pathlib import Path
 
+import jax
+jax.config.update("jax_default_matmul_precision", "float32")
 import keras
 from keras import layers
 import numpy as np
