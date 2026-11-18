@@ -244,6 +244,63 @@ each quiet stretch on the same side as the shots it was cut from.
 
 ---
 
+## D6. ADC sample rate, bit depth and window length
+
+| Field | Value |
+|---|---|
+| Step | S1.7 (`sw/train/run_step17.py`, `results/step17/step17_report.md`) |
+| Needed by | Step 1.8 (float model suite), Step 1.9 (architecture freeze), Step 4.7 (live ADC & window capture) |
+| Status | **Proposed**, waiting for team sign-off at Step 1.9 |
+| Decided by | (to be filled in) |
+| Date | (to be filled in) |
+
+**The question.** What sample rate (`8 / 16 / 22.05 kHz`), ADC bit depth (`16 / 12 / 10 / 8 / 6` bits, MSB-truncated
+before the per-window power-of-two hardware gain), and window length (`0.25 / 0.40 / 0.50 s`) give the cheapest
+hardware input within `1.0` percentage point of the best cross-validated macro-F1?
+
+**Pre-registered selection rule** (`results/step17/selection_rule.json`, committed in `9fe223b` before running the
+sweep): score every point by its 3-seed mean (`seeds = 1701, 1702, 1703`) of pooled 5-fold session-disjoint CV
+`macro-F1` using the fixed `cnn1d` topology (`sw/models/cnn1d.py`). Pick the cheapest `(sample_rate ASC, adc_bits ASC)`
+within `1.0` percentage point (`0.01`) of the grid maximum, then at that `(rate, bits)` pick the shortest window in
+`{0.25, 0.40, 0.50} s` within `1.0` pp of the best window.
+
+**Measured `(rate × bits)` grid at `0.50 s`** (`225` fold trainings; `results/step17/adc_sweep_grid.csv`):
+
+| Sample rate | 16-bit | 12-bit | 10-bit | 8-bit | 6-bit | 1D-CNN MACs |
+|---:|---:|---:|---:|---:|---:|---:|
+| **8,000 Hz** | 42.07 ± 1.53 % | **42.15 ± 0.97 %** | **41.42 ± 1.96 % (D6)** | 37.78 ± 0.27 % | 33.53 ± 0.19 % | 1,348,256 |
+| **16,000 Hz** | 41.58 ± 1.11 % | 41.30 ± 0.35 % | 40.98 ± 0.46 % | 37.17 ± 0.87 % | 34.78 ± 1.56 % | 2,731,168 |
+| **22,050 Hz** | 41.75 ± 1.19 % | 41.49 ± 0.99 % | 40.64 ± 0.61 % | 36.11 ± 1.09 % | 33.53 ± 1.53 % | 3,763,360 |
+
+**Measured window sweep at `(8,000 Hz, 10-bit)`** (`results/step17/window_sweep.csv`):
+
+| Window | Samples | Real audio + zero tail | 1D-CNN MACs | Macro-F1 (mean ± std) | Balanced Acc |
+|---:|---:|---|---:|---:|---:|
+| 0.25 s | 2,000 | 0.25 s + 0.00 s | 663,712 | 40.97 ± 1.60 % | 42.10 % |
+| **0.40 s (D6)** | **3,200** | **0.40 s + 0.00 s (D22 option c)** | **1,075,360** | **42.38 ± 1.46 %** | **43.24 %** |
+| 0.50 s | 4,000 | 0.40 s + 0.10 s (D22 option a) | 1,348,256 | 41.42 ± 1.96 % | 42.62 % |
+
+**Proposed choice (by the pre-registered 1-pp rule): `8,000 Hz, 10-bit, 0.40 s` (`3,200` samples, `1,075,360` MACs).**
+
+**Key physical findings & trade-off for the Step 1.9 freeze meeting:**
+1. **ADC bit-depth knee is sharp and rate-invariant between 10-bit and 8-bit:** Across all three sample rates, `16`,
+   `12`, and `10` bits sit on a flat plateau, while `8-bit` drops by `~4.4` pp and `6-bit` drops by `~7.5` pp because
+   distant gunshots lose dynamic range before the barrel-shift window gain. `10-bit` (or `12-bit` on standard FPGA
+   XADC, which is free on Artix-7!) captures the full accuracy.
+2. **`22.05 kHz` adds nothing over `16 kHz`:** `22.05 kHz` matches `16 kHz` within `0.17` pp (`41.75 %` vs `41.58 %`)
+   at `+38 %` MAC cost, so `22.05 kHz` is eliminated.
+3. **`8 kHz` vs `16 kHz` nuance on `.38 Special`:** While `8 kHz` matches `16 kHz` on 5-class `macro-F1` at half the
+   MACs, `.38 Special` recall is higher at `16 kHz` (`57.3 %` at 16-bit / `55.2 %` at 12-bit vs `45.2 % / 37.9 %` at
+   `8 kHz`). Step 1.8 therefore evaluates both the D6 winner (`8 kHz, 10-bit, 0.40 s`) and `cnn1d_spec51` (`16 kHz,
+   16-bit, 0.50 s`, keeping `arith_spec.md` §5.1 unchanged) side-by-side so the team can decide at Step 1.9 whether
+   the `2.5×` MAC & buffer reduction outweighs amending `arith_spec.md` §5.1 (`L_in = 3,200`, `conv1 -> 393`,
+   `pool1 -> 98`, `pool2 -> 24`) and `.38` recall.
+4. **Revisiting D22 (`0.40 s` vs `0.50 s`):** Removing the `0.10 s` artificial zero tail (`0.40 s` = D22 option c)
+   slightly *improves* macro-F1 (`42.38 %` vs `41.42 %`) while cutting MACs by `20 %`. If the team adopts `0.40 s` in
+   Step 1.9, D22 moves from option (a) to option (c) and `arith_spec.md` §5.1 updates `INPUT_LEN` accordingly.
+
+---
+
 ## Confirmations needed from the model owner (T1.1)
 
 These are not choices. They are facts about `sw/models/cnn1d.py` that `docs/arith_spec.md` §5 assumes. They have to be

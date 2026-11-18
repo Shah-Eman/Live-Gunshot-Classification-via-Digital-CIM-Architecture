@@ -1,0 +1,48 @@
+{
+  "rule": {
+    "metric": "3-seed mean of pooled 5-fold session-disjoint CV macro_f1",
+    "margin_below_best": 0.01,
+    "grid_cost_order": [
+      "sample_rate ASC",
+      "adc_bits ASC"
+    ],
+    "window_cost_order": [
+      "total_macs ASC",
+      "window_s ASC"
+    ],
+    "rates_hz": [
+      8000,
+      16000,
+      22050
+    ],
+    "bits": [
+      16,
+      12,
+      10,
+      8,
+      6
+    ],
+    "windows_s": [
+      0.25,
+      0.4,
+      0.5
+    ],
+    "seeds": [
+      1701,
+      1702,
+      1703
+    ]
+  },
+  "best_grid_macro_f1": 0.4215155574317204,
+  "chosen_sample_rate": 8000,
+  "chosen_adc_bits": 10,
+  "best_window_macro_f1": 0.42375055515266585,
+  "chosen_window_s": 0.4,
+  "chosen_input_samples": 3200,
+  "chosen_macs": 1075360,
+  "chosen_params": 15093,
+  "chosen_macro_f1_mean": 0.42375055515266585,
+  "chosen_macro_f1_std": 0.01461495660311174,
+  "chosen_balanced_accuracy_mean": 0.4323665730819266,
+  "default_16k_16b_05s_macro_f1_mean": 0.4157666258860908
+}
