@@ -1,0 +1,101 @@
+{
+  "d6_operating_point": {
+    "sample_rate": 8000,
+    "adc_bits": 10,
+    "window_s": 0.4
+  },
+  "promotion_rule": {
+    "2d_over_1d_margin_macro_f1": 0.05,
+    "w64_over_base_1d_margin_macro_f1": 0.01,
+    "budget_max_macs": 4000000,
+    "budget_max_params": 30000,
+    "seeds": [
+      1801,
+      1802,
+      1803
+    ]
+  },
+  "selected_hardware_model": "cnn1d",
+  "2d_promoted_over_1d": false,
+  "2d_minus_1d_macro_f1": 0.018271127759857064,
+  "split_comparison_cnn1d": {
+    "session_disjoint_cv_macro_f1": 0.4101959975527283,
+    "device_disjoint_macro_f1": 0.5489185498144633,
+    "random_clip_split_macro_f1": 0.6843522266345023,
+    "session_leakage_inflation_pp": 27.415622908177404
+  },
+  "leakage_check": {
+    "chance_level": 0.25,
+    "pre_trigger_samples": 304,
+    "pre_trigger_ms": 38.0,
+    "classes": [
+      "pistol_9mm",
+      "revolver_38spl",
+      "rifle_556_223",
+      "shotgun_12ga"
+    ],
+    "session_disjoint_cv": {
+      "macro_f1": 0.2035727259823596,
+      "balanced_accuracy": 0.21003062282092658,
+      "accuracy": 0.2483564645726808,
+      "per_class": {
+        "pistol_9mm": {
+          "support": 3629,
+          "precision": 0.45209790209790207,
+          "recall": 0.356296500413337,
+          "f1": 0.3985205732778548
+        },
+        "revolver_38spl": {
+          "support": 1130,
+          "precision": 0.09588477366255144,
+          "recall": 0.20619469026548673,
+          "f1": 0.13089887640449438
+        },
+        "rifle_556_223": {
+          "support": 2741,
+          "precision": 0.31723625557206536,
+          "recall": 0.15578256110908428,
+          "f1": 0.208955223880597
+        },
+        "shotgun_12ga": {
+          "support": 714,
+          "precision": 0.055133079847908745,
+          "recall": 0.12184873949579832,
+          "f1": 0.07591623036649214
+        }
+      }
+    },
+    "random_clip_split": {
+      "macro_f1": 0.391351160052984,
+      "balanced_accuracy": 0.4349483433290099,
+      "accuracy": 0.42201834862385323,
+      "per_class": {
+        "pistol_9mm": {
+          "support": 719,
+          "precision": 0.5982532751091703,
+          "recall": 0.3810848400556328,
+          "f1": 0.46559048428207306
+        },
+        "revolver_38spl": {
+          "support": 219,
+          "precision": 0.23573200992555832,
+          "recall": 0.4337899543378995,
+          "f1": 0.3054662379421222
+        },
+        "rifle_556_223": {
+          "support": 551,
+          "precision": 0.5685393258426966,
+          "recall": 0.4591651542649728,
+          "f1": 0.5080321285140563
+        },
+        "shotgun_12ga": {
+          "support": 146,
+          "precision": 0.2066869300911854,
+          "recall": 0.4657534246575342,
+          "f1": 0.2863157894736842
+        }
+      }
+    }
+  },
+  "test_set_touched": false
+}

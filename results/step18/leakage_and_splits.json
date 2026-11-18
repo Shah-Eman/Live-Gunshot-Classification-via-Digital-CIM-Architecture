@@ -1,0 +1,257 @@
+{
+  "splits": {
+    "device_disjoint": {
+      "n_seeds": 3,
+      "macro_f1_mean": 0.5489185498144633,
+      "macro_f1_std": 0.00535035538600315,
+      "balanced_accuracy_mean": 0.5963482999944413,
+      "balanced_accuracy_std": 0.0053006261802012004,
+      "accuracy_mean": 0.7208168642951253,
+      "accuracy_std": 0.004372707977674881,
+      "revolver_38spl_recall_mean": 0.7249488752556238,
+      "revolver_38spl_recall_std": 0.0227260846328148,
+      "per_class": {
+        "pistol_9mm": {
+          "support": 1068,
+          "recall_mean": 0.6657303370786517,
+          "recall_std": 0.03456396554283925,
+          "f1_mean": 0.6565345249871765,
+          "f1_std": 0.01682538723753801
+        },
+        "revolver_38spl": {
+          "support": 326,
+          "recall_mean": 0.7249488752556238,
+          "recall_std": 0.0227260846328148,
+          "f1_mean": 0.38952367167894275,
+          "f1_std": 0.006773681785133019
+        },
+        "rifle_556_223": {
+          "support": 947,
+          "recall_mean": 0.2910946849700809,
+          "recall_std": 0.014791905237205694,
+          "f1_mean": 0.4288503560925048,
+          "f1_std": 0.01596629264510683
+        },
+        "shotgun_12ga": {
+          "support": 228,
+          "recall_mean": 0.35964912280701755,
+          "recall_std": 0.0284243013088064,
+          "f1_mean": 0.3231629514347398,
+          "f1_std": 0.020986661028121845
+        },
+        "background": {
+          "support": 2491,
+          "recall_mean": 0.9403184798608323,
+          "recall_std": 0.0038412150660798623,
+          "f1_mean": 0.9465212448789528,
+          "f1_std": 0.0014540565940964498
+        }
+      },
+      "per_source": {
+        "c3gd": {
+          "n": 605,
+          "accuracy_mean": 0.8617079889807163,
+          "accuracy_std": 0.021352972314133443
+        },
+        "cadre": {
+          "n": 535,
+          "accuracy_mean": 0.540809968847352,
+          "accuracy_std": 0.018207650088725814
+        },
+        "cadre-quiet": {
+          "n": 80,
+          "accuracy_mean": 0.9833333333333334,
+          "accuracy_std": 0.005892556509887927
+        },
+        "edge": {
+          "n": 1429,
+          "accuracy_mean": 0.3459295544669932,
+          "accuracy_std": 0.014367962299449036
+        },
+        "edge-quiet": {
+          "n": 166,
+          "accuracy_mean": 0.9959839357429718,
+          "accuracy_std": 0.005679572539651002
+        },
+        "esc50": {
+          "n": 335,
+          "accuracy_mean": 0.8368159203980099,
+          "accuracy_std": 0.012022931317009546
+        },
+        "unfiltered": {
+          "n": 621,
+          "accuracy_mean": 0.9844337090713902,
+          "accuracy_std": 0.004977787705580078
+        },
+        "us8k": {
+          "n": 1289,
+          "accuracy_mean": 0.9361261960175846,
+          "accuracy_std": 0.0022245475218625956
+        }
+      }
+    },
+    "random_clip": {
+      "n_seeds": 3,
+      "macro_f1_mean": 0.6843522266345023,
+      "macro_f1_std": 0.00985770168460223,
+      "balanced_accuracy_mean": 0.7360597169765818,
+      "balanced_accuracy_std": 0.009350351099423533,
+      "accuracy_mean": 0.8321701561980724,
+      "accuracy_std": 0.00465122466011244,
+      "revolver_38spl_recall_mean": 0.7442922374429224,
+      "revolver_38spl_recall_std": 0.006457596175219637,
+      "per_class": {
+        "pistol_9mm": {
+          "support": 719,
+          "recall_mean": 0.6768660176170607,
+          "recall_std": 0.024496698773524162,
+          "f1_mean": 0.7139832938298034,
+          "f1_std": 0.01934859286346335
+        },
+        "revolver_38spl": {
+          "support": 219,
+          "recall_mean": 0.7442922374429224,
+          "recall_std": 0.006457596175219637,
+          "f1_mean": 0.5648668931921178,
+          "f1_std": 0.020965423449591444
+        },
+        "rifle_556_223": {
+          "support": 551,
+          "recall_mean": 0.6146400483968543,
+          "recall_std": 0.02000948022812007,
+          "f1_mean": 0.6704618292688753,
+          "f1_std": 0.00801232994751421
+        },
+        "shotgun_12ga": {
+          "support": 146,
+          "recall_mean": 0.6986301369863014,
+          "recall_std": 0.022369769340485644,
+          "f1_mean": 0.5101808792313972,
+          "f1_std": 0.020318857222898938
+        },
+        "background": {
+          "support": 2377,
+          "recall_mean": 0.94587014443977,
+          "recall_std": 0.0031731057352362146,
+          "f1_mean": 0.9622682376503174,
+          "f1_std": 0.0026313553729298985
+        }
+      },
+      "per_source": {
+        "c3gd": {
+          "n": 388,
+          "accuracy_mean": 0.7972508591065292,
+          "accuracy_std": 0.004859840420526135
+        },
+        "cadre": {
+          "n": 351,
+          "accuracy_mean": 0.6581196581196581,
+          "accuracy_std": 0.0443810881122428
+        },
+        "cadre-quiet": {
+          "n": 51,
+          "accuracy_mean": 0.9869281045751634,
+          "accuracy_std": 0.018486451795726718
+        },
+        "edge": {
+          "n": 896,
+          "accuracy_mean": 0.6138392857142857,
+          "accuracy_std": 0.02010994308294582
+        },
+        "edge-quiet": {
+          "n": 115,
+          "accuracy_mean": 0.9623188405797102,
+          "accuracy_std": 0.008198339492017948
+        },
+        "esc50": {
+          "n": 328,
+          "accuracy_mean": 0.8150406504065041,
+          "accuracy_std": 0.008002040522369682
+        },
+        "unfiltered": {
+          "n": 547,
+          "accuracy_mean": 0.9872029250457038,
+          "accuracy_std": 0.0014926811351511971
+        },
+        "us8k": {
+          "n": 1336,
+          "accuracy_mean": 0.9580838323353293,
+          "accuracy_std": 0.0031756292568257782
+        }
+      }
+    }
+  },
+  "leakage": {
+    "chance_level": 0.25,
+    "pre_trigger_samples": 304,
+    "pre_trigger_ms": 38.0,
+    "classes": [
+      "pistol_9mm",
+      "revolver_38spl",
+      "rifle_556_223",
+      "shotgun_12ga"
+    ],
+    "session_disjoint_cv": {
+      "macro_f1": 0.2035727259823596,
+      "balanced_accuracy": 0.21003062282092658,
+      "accuracy": 0.2483564645726808,
+      "per_class": {
+        "pistol_9mm": {
+          "support": 3629,
+          "precision": 0.45209790209790207,
+          "recall": 0.356296500413337,
+          "f1": 0.3985205732778548
+        },
+        "revolver_38spl": {
+          "support": 1130,
+          "precision": 0.09588477366255144,
+          "recall": 0.20619469026548673,
+          "f1": 0.13089887640449438
+        },
+        "rifle_556_223": {
+          "support": 2741,
+          "precision": 0.31723625557206536,
+          "recall": 0.15578256110908428,
+          "f1": 0.208955223880597
+        },
+        "shotgun_12ga": {
+          "support": 714,
+          "precision": 0.055133079847908745,
+          "recall": 0.12184873949579832,
+          "f1": 0.07591623036649214
+        }
+      }
+    },
+    "random_clip_split": {
+      "macro_f1": 0.391351160052984,
+      "balanced_accuracy": 0.4349483433290099,
+      "accuracy": 0.42201834862385323,
+      "per_class": {
+        "pistol_9mm": {
+          "support": 719,
+          "precision": 0.5982532751091703,
+          "recall": 0.3810848400556328,
+          "f1": 0.46559048428207306
+        },
+        "revolver_38spl": {
+          "support": 219,
+          "precision": 0.23573200992555832,
+          "recall": 0.4337899543378995,
+          "f1": 0.3054662379421222
+        },
+        "rifle_556_223": {
+          "support": 551,
+          "precision": 0.5685393258426966,
+          "recall": 0.4591651542649728,
+          "f1": 0.5080321285140563
+        },
+        "shotgun_12ga": {
+          "support": 146,
+          "precision": 0.2066869300911854,
+          "recall": 0.4657534246575342,
+          "f1": 0.2863157894736842
+        }
+      }
+    }
+  }
+}
